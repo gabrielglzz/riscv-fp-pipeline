@@ -59,6 +59,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
+      contents: read   # job-level permissions replace the workflow ones, so checkout needs this
       pages: write
       id-token: write
     environment:
