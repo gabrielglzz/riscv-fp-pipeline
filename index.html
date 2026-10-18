@@ -1,0 +1,1776 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Web simulator of an in-order RISC-V pipeline with multicycle floating-point units (Hennessy and Patterson, Chapter 3 and Appendix C). Cycle diagram, cycle-by-cycle mode, English and Spanish.">
+<meta property="og:title" content="Pipeline FP RISC-V">
+<meta property="og:description" content="Teaching simulator for instruction scheduling: 5-stage RISC-V pipeline with multicycle FP units.">
+<meta property="og:type" content="website">
+<title>Pipeline FP RISC-V</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+[hidden]{display:none!important}
+html,body{margin:0}
+
+/* Layout: two-column workbench, code and settings on the left, cycle diagram on the right; a single column on phones */
+:root{
+  --bg:#edf0f3; --surface:#fafbfc; --raised:#ffffff; --ink:#15202a; --muted:#5a6672; --line:#d2d9e0; --line-soft:#e3e8ed;
+  --accent:#1c5b76; --accent-ink:#ffffff; --accent-soft:#d9e8ef; --danger:#a8261c; --danger-soft:#f8e1de;
+  --s-if:#d8e5f5; --s-if-ink:#1c3d63;
+  --s-id:#e3ddf4; --s-id-ink:#42307a;
+  --s-ex:#d4ecdc; --s-ex-ink:#1d5432;
+  --s-mem:#f3e5c5; --s-mem-ink:#67480b;
+  --s-wb:#e1e5e9; --s-wb-ink:#2e3943;
+  --s-add:#c6e7ea; --s-add-ink:#0e4f56;
+  --s-mul:#f2d5e3; --s-mul-ink:#771e4a;
+  --s-div:#f5d8c2; --s-div-ink:#77380b;
+  --st-raw:#f5cfc9; --st-raw-ink:#8a1b12;
+  --st-struct:#f3dfae; --st-struct-ink:#6e4c08;
+  --st-waw:#e3cff1; --st-waw-ink:#5b2280;
+  --st-wait:#e8ecef; --st-wait-ink:#7a8590;
+  --st-ctrl:#c9d1d9; --st-ctrl-ink:#3d4955;
+  --flush:#98a3ae;
+  --font-ui:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display:"IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --radius:6px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11171d; --surface:#161e25; --raised:#1b242c; --ink:#e3e9ee; --muted:#93a1ad; --line:#2c3843; --line-soft:#222c35;
+    --accent:#6fb5d3; --accent-ink:#0b1a22; --accent-soft:#1d3946; --danger:#f08a80; --danger-soft:#3b1d1a;
+    --s-if:#1f3550; --s-if-ink:#bcd5f3;
+    --s-id:#2f2750; --s-id-ink:#d3c8f5;
+    --s-ex:#1d3d29; --s-ex-ink:#bfe6cc;
+    --s-mem:#43361a; --s-mem-ink:#f1dca8;
+    --s-wb:#2a333c; --s-wb-ink:#ccd5dd;
+    --s-add:#123f45; --s-add-ink:#b2e6eb;
+    --s-mul:#4a1f35; --s-mul-ink:#f4c5dc;
+    --s-div:#4a2c16; --s-div-ink:#f6cfaf;
+    --st-raw:#4d211c; --st-raw-ink:#ffb9af;
+    --st-struct:#463713; --st-struct-ink:#f4d58c;
+    --st-waw:#3c2350; --st-waw-ink:#e1c2f7;
+    --st-wait:#222b33; --st-wait-ink:#8593a0;
+    --st-ctrl:#3d4a57; --st-ctrl-ink:#c3ced8;
+    --flush:#5d6a76;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+    --bg:#11171d; --surface:#161e25; --raised:#1b242c; --ink:#e3e9ee; --muted:#93a1ad; --line:#2c3843; --line-soft:#222c35;
+    --accent:#6fb5d3; --accent-ink:#0b1a22; --accent-soft:#1d3946; --danger:#f08a80; --danger-soft:#3b1d1a;
+    --s-if:#1f3550; --s-if-ink:#bcd5f3;
+    --s-id:#2f2750; --s-id-ink:#d3c8f5;
+    --s-ex:#1d3d29; --s-ex-ink:#bfe6cc;
+    --s-mem:#43361a; --s-mem-ink:#f1dca8;
+    --s-wb:#2a333c; --s-wb-ink:#ccd5dd;
+    --s-add:#123f45; --s-add-ink:#b2e6eb;
+    --s-mul:#4a1f35; --s-mul-ink:#f4c5dc;
+    --s-div:#4a2c16; --s-div-ink:#f6cfaf;
+    --st-raw:#4d211c; --st-raw-ink:#ffb9af;
+    --st-struct:#463713; --st-struct-ink:#f4d58c;
+    --st-waw:#3c2350; --st-waw-ink:#e1c2f7;
+    --st-wait:#222b33; --st-wait-ink:#8593a0;
+    --st-ctrl:#3d4a57; --st-ctrl-ink:#c3ced8;
+    --flush:#5d6a76;
+    color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:var(--font-ui);font-size:14px;line-height:1.45;padding-inline:16px;padding-block:0 32px}
+h1,h2,h3{font-family:var(--font-display);font-weight:600;text-wrap:balance;margin:0}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{max-width:1500px;margin-inline:auto;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;padding-block:18px 14px;border-bottom:1px solid var(--line)}
+.top h1{font-size:22px;letter-spacing:.01em}
+.top p{margin:0;color:var(--muted);font-size:13px;flex:1 1 320px}
+.lang{display:flex;gap:2px;border:1px solid var(--line);border-radius:5px;padding:2px;background:var(--surface)}
+.lang button{border:0;background:none;border-radius:3px;padding:3px 9px;cursor:pointer;color:var(--muted);font-weight:600;font-size:12px;letter-spacing:.04em}
+.lang button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.layout{max-width:1500px;margin-inline:auto;display:grid;grid-template-columns:minmax(0,440px) minmax(0,1fr);gap:20px;padding-block:18px}
+@media (max-width:1000px){.layout{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);min-width:0}
+.panel-h{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line-soft)}
+.panel-h h2{font-size:15px}
+.panel-b{padding:12px 14px}
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+
+select,input[type=number]{background:var(--raised);border:1px solid var(--line);border-radius:4px;padding:5px 8px}
+select{max-width:100%}
+input[type=number]{width:64px;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.btn{border:1px solid var(--line);background:var(--raised);border-radius:4px;padding:6px 12px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.small{padding:3px 9px;font-size:12px}
+
+/* editor */
+.editor{display:grid;grid-template-columns:auto minmax(0,1fr);border-top:1px solid var(--line-soft);background:var(--raised);height:440px;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
+.gutter{font-family:var(--font-mono);font-size:13px;line-height:20px;color:var(--muted);text-align:right;padding:10px 8px 10px 12px;user-select:none;overflow:hidden;background:var(--surface);border-right:1px solid var(--line-soft);font-variant-numeric:tabular-nums}
+.gutter div.err{color:var(--danger);font-weight:600}
+textarea#code{font-family:var(--font-mono);font-size:13px;line-height:20px;border:0;outline:none;resize:none;padding:10px 12px;background:transparent;color:var(--ink);white-space:pre;overflow:auto;tab-size:8;min-width:0}
+.editor-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px}
+.editor-bar .hint{color:var(--muted);font-size:12px;margin-left:auto}
+.example-row{display:flex;gap:8px;align-items:center;padding:10px 14px;flex-wrap:wrap}
+.example-row select{flex:1 1 220px}
+.note{font-size:12.5px;color:var(--muted);padding:0 14px 10px}
+.msg-error{margin:0 14px 12px;padding:8px 10px;border-radius:4px;background:var(--danger-soft);color:var(--danger);font-size:13px}
+
+/* config */
+.cfg{display:grid;gap:10px}
+.cfg-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cfg-row > label:first-child{min-width:150px}
+.units{width:100%;border-collapse:collapse;font-size:13px}
+.units th{text-align:left;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:4px 6px 6px 0}
+.units td{padding:4px 6px 4px 0;border-top:1px solid var(--line-soft)}
+.check{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.check input{width:16px;height:16px;accent-color:var(--accent)}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--line-soft);border-bottom:1px solid var(--line-soft)}
+.stat{background:var(--surface);padding:10px 14px}
+.stat .v{font-family:var(--font-mono);font-size:22px;font-weight:500;font-variant-numeric:tabular-nums}
+.stat .v small{font-size:13px;color:var(--muted);font-weight:400}
+.breakdown{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 14px;align-items:center;font-size:13px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.sw{width:12px;height:12px;border-radius:2px;display:inline-block;flex:none}
+.ref{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 14px;border-top:1px solid var(--line-soft);font-size:13px}
+.ref strong{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.speed-up{color:var(--s-ex-ink);background:var(--s-ex);padding:1px 7px;border-radius:10px;font-family:var(--font-mono)}
+.speed-down{color:var(--st-raw-ink);background:var(--st-raw);padding:1px 7px;border-radius:10px;font-family:var(--font-mono)}
+.warn{margin:10px 14px;padding:8px 10px;border-radius:4px;background:var(--st-struct);color:var(--st-struct-ink);font-size:13px}
+
+/* diagram */
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;padding:10px 14px;border-bottom:1px solid var(--line-soft);font-size:12px;color:var(--muted)}
+.legend .chip span.tag{font-family:var(--font-mono);font-size:10.5px;padding:1px 5px;border-radius:3px}
+.diag-wrap{overflow:auto;max-height:620px;position:relative}
+table.diag{border-collapse:separate;border-spacing:0;font-family:var(--font-mono);font-size:11px;font-variant-numeric:tabular-nums}
+table.diag th,table.diag td{height:24px;padding:0;text-align:center;white-space:nowrap}
+table.diag thead th{position:sticky;top:0;background:var(--surface);color:var(--muted);font-weight:500;border-bottom:1px solid var(--line);z-index:2;min-width:38px;width:38px}
+table.diag thead th.ins-h{left:0;z-index:3;text-align:left;padding:0 10px;min-width:220px}
+table.diag td.ins{position:sticky;left:0;background:var(--surface);text-align:left;padding:0 10px;border-right:1px solid var(--line);z-index:1;font-size:12px;color:var(--ink);max-width:280px;overflow:hidden;text-overflow:ellipsis}
+table.diag td.ins .ln{color:var(--muted);display:inline-block;width:28px}
+table.diag td.ins .slot{font-family:var(--font-ui);font-size:10px;color:var(--accent);margin-left:6px}
+table.diag tbody tr:hover td{box-shadow:inset 0 1px 0 var(--line),inset 0 -1px 0 var(--line)}
+table.diag tbody tr:hover td.ins{background:var(--accent-soft)}
+table.diag td.c{min-width:38px;width:38px;border-right:1px solid var(--line-soft)}
+td.c span{display:block;margin:2px 1px;line-height:20px;border-radius:3px;font-weight:500}
+.k-IF{background:var(--s-if);color:var(--s-if-ink)}
+.k-ID{background:var(--s-id);color:var(--s-id-ink)}
+.k-EX{background:var(--s-ex);color:var(--s-ex-ink)}
+.k-MEM{background:var(--s-mem);color:var(--s-mem-ink)}
+.k-WB{background:var(--s-wb);color:var(--s-wb-ink)}
+.k-A{background:var(--s-add);color:var(--s-add-ink)}
+.k-M{background:var(--s-mul);color:var(--s-mul-ink)}
+.k-D{background:var(--s-div);color:var(--s-div-ink)}
+.k-raw{background:repeating-linear-gradient(135deg,var(--st-raw) 0 4px,transparent 4px 7px);color:var(--st-raw-ink);border:1px solid var(--st-raw)}
+.k-struct{background:repeating-linear-gradient(135deg,var(--st-struct) 0 4px,transparent 4px 7px);color:var(--st-struct-ink);border:1px solid var(--st-struct)}
+.k-waw{background:repeating-linear-gradient(135deg,var(--st-waw) 0 4px,transparent 4px 7px);color:var(--st-waw-ink);border:1px solid var(--st-waw)}
+.k-wait{background:var(--st-wait);color:var(--st-wait-ink)}
+.k-control{background:repeating-linear-gradient(135deg,var(--st-ctrl) 0 4px,transparent 4px 7px);color:var(--st-ctrl-ink);border:1px solid var(--st-ctrl)}
+.k-flush{color:var(--flush);font-weight:600}
+tr.flushed td.ins{color:var(--flush);text-decoration:line-through}
+td.c span[title]{cursor:help}
+.pager{display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid var(--line-soft);font-size:13px;color:var(--muted);flex-wrap:wrap}
+
+/* cycle-by-cycle mode */
+.modes{display:flex;gap:4px}
+.modes button{border:1px solid transparent;background:none;border-radius:4px;padding:4px 10px;cursor:pointer;color:var(--muted);font-weight:500}
+.modes button[aria-pressed="true"]{background:var(--accent-soft);color:var(--ink);border-color:var(--line)}
+.stepbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 14px;border-bottom:1px solid var(--line-soft)}
+.stepbar .btn{min-width:38px}
+.stepbar .now-label{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:15px;font-weight:500;min-width:120px}
+.stepbar input[type=range]{flex:1 1 180px;accent-color:var(--accent);min-width:120px}
+.pipe-wrap{overflow-x:auto}
+.pipe{display:grid;grid-template-columns:86px 86px auto 80px 80px;gap:6px;align-items:center;padding:14px;min-width:min-content}
+.lanes{display:grid;gap:6px}
+.lane{display:flex;gap:4px;align-items:center}
+.lane .lname{width:42px;flex:none;font-size:11px;color:var(--muted);text-align:right;padding-right:4px}
+.stage{border:1px solid var(--line);border-radius:4px;background:var(--raised);height:46px;padding:3px 6px;font-family:var(--font-mono);font-size:11px;min-width:0;display:flex;flex-direction:column;justify-content:center;overflow:hidden}
+.lane .stage{width:66px;flex:none;font-size:10px;padding:3px}
+.stage{padding:3px 4px;font-size:10.5px}
+.stage .nm{font-family:var(--font-ui);font-size:10px;letter-spacing:.04em;text-transform:uppercase;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stage .in{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stage .in + .in{border-top:1px dotted currentColor}
+.stage.idle{color:var(--muted)}
+.stage.idle .in{opacity:.5}
+.events{padding:4px 14px 14px;display:grid;gap:4px;font-size:13px}
+.events div{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;align-items:baseline}
+.events .tag{font-family:var(--font-mono);font-size:10.5px;padding:1px 5px;border-radius:3px;text-align:center}
+.events code{font-family:var(--font-mono);font-size:12.5px}
+table.diag th.now{background:var(--accent);color:var(--accent-ink)}
+table.diag td.c.now{background:var(--accent-soft)}
+.state-grid div.chg{color:var(--s-ex-ink);background:var(--s-ex);font-weight:600}
+.mem-table tr.chg td{background:var(--s-ex);color:var(--s-ex-ink);font-weight:600}
+/* units with many stages: compact cells */
+.minis-wrap{display:grid;gap:3px;max-width:486px}
+.minis{display:flex;flex-wrap:wrap;gap:2px}
+.mini{width:18px;height:22px;border:1px solid var(--line);border-radius:3px;background:var(--raised);font-family:var(--font-mono);font-size:8.5px;color:var(--muted);display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+.mini.on{font-weight:600;border-color:transparent}
+.mini.k-A{background:var(--s-add);color:var(--s-add-ink)}
+.mini.k-M{background:var(--s-mul);color:var(--s-mul-ink)}
+.mini.k-D{background:var(--s-div);color:var(--s-div-ink)}
+.minis-cap{font-family:var(--font-mono);font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:14px}
+.minis-cap b{font-weight:600;color:var(--ink)}
+.stage.busy-np{width:auto!important;min-width:120px}
+/* details */
+.details{padding:6px 14px 12px}
+.details ol{margin:0;padding-left:0;list-style:none;display:grid;gap:6px}
+.details li{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;padding:6px 0;border-bottom:1px solid var(--line-soft);font-size:13px}
+.details li code{font-family:var(--font-mono);font-size:12.5px}
+.details .why{color:var(--muted)}
+.empty{color:var(--muted);font-size:13px;padding:12px 14px}
+
+/* state */
+.state-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:2px 16px;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums}
+.state-grid div{display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px dotted var(--line-soft)}
+.state-grid div.nz{color:var(--ink)}
+.state-grid div.z{color:var(--muted)}
+.mem-table{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px;font-variant-numeric:tabular-nums}
+.mem-table th{font-family:var(--font-ui);text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;padding:4px 10px 4px 0}
+.mem-table td{padding:3px 10px 3px 0;border-top:1px solid var(--line-soft)}
+.mem-table td.chg{color:var(--s-ex-ink);font-weight:600}
+.scroll-x{overflow-x:auto}
+.tabs{display:flex;gap:4px}
+.tabs button{border:1px solid transparent;background:none;border-radius:4px;padding:4px 10px;cursor:pointer;color:var(--muted);font-weight:500}
+.tabs button[aria-selected="true"]{background:var(--accent-soft);color:var(--ink);border-color:var(--line)}
+.foot{max-width:1500px;margin-inline:auto;color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-block:12px}
+.foot p{margin:4px 0;max-width:110ch}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+
+<header class="top">
+  <h1>Pipeline FP RISC-V</h1>
+  <p data-i18n="hdr.sub"></p>
+  <div class="lang" role="group" data-i18n-aria="lang.aria">
+    <button type="button" data-lang="es" aria-pressed="false">ES</button>
+    <button type="button" data-lang="en" aria-pressed="false">EN</button>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="col">
+    <section class="panel" aria-labelledby="h-code">
+      <div class="panel-h"><h2 id="h-code" data-i18n="prog.h"></h2><span class="label" data-i18n="prog.isa"></span></div>
+      <div class="example-row">
+        <label class="label" for="example" data-i18n="ex.label"></label>
+        <select id="example"></select>
+        <button class="btn small" id="load-example" type="button" data-i18n="ex.load"></button>
+      </div>
+      <div class="note" id="example-note"></div>
+      <div class="editor">
+        <div class="gutter" id="gutter" aria-hidden="true"></div>
+        <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" data-i18n-aria="code.aria"></textarea>
+      </div>
+      <div class="editor-bar">
+        <button class="btn primary" id="run" type="button" data-i18n="run"></button>
+        <button class="btn" id="set-ref" type="button" data-i18n="setref" data-i18n-title="setref.title"></button>
+        <span class="hint" data-i18n="hint"></span>
+      </div>
+      <div class="msg-error" id="error" hidden></div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-cfg">
+      <div class="panel-h"><h2 id="h-cfg" data-i18n="cpu.h"></h2><button class="btn small" id="reset-cfg" type="button" data-i18n="reset"></button></div>
+      <div class="panel-b cfg">
+        <div class="cfg-row">
+          <label for="cfg-model" data-i18n="model.label"></label>
+          <select id="cfg-model">
+            <option value="ch3" data-i18n="model.ch3"></option>
+            <option value="appc" data-i18n="model.appc"></option>
+          </select>
+        </div>
+        <p class="note" style="padding:0" id="model-note"></p>
+        <div class="cfg-row">
+          <label class="check"><input type="checkbox" id="cfg-fwd"> <span data-i18n-html="fwd"></span></label>
+        </div>
+        <div class="cfg-row">
+          <label class="check"><input type="checkbox" id="cfg-stallfirst"> <span data-i18n="stallfirst"></span></label>
+        </div>
+        <p class="note" style="padding:0" data-i18n="stallfirst.note"></p>
+        <div class="cfg-row">
+          <label for="cfg-branch" data-i18n="branch.label"></label>
+          <select id="cfg-branch">
+            <option value="pnt" data-i18n="branch.pnt"></option>
+            <option value="freeze" data-i18n="branch.freeze"></option>
+            <option value="delayed" data-i18n="branch.delayed"></option>
+          </select>
+        </div>
+        <p class="note" style="padding:0" id="branch-note" hidden></p>
+        <div class="cfg-row">
+          <label for="cfg-resolve" data-i18n="resolve.label"></label>
+          <select id="cfg-resolve">
+            <option value="ex" data-i18n="resolve.ex"></option>
+            <option value="id" data-i18n="resolve.id"></option>
+          </select>
+        </div>
+        <p class="note" style="padding:0" id="resolve-note"></p>
+        <table class="units">
+          <thead><tr><th data-i18n="units.unit"></th><th data-i18n="units.lat"></th><th data-i18n="units.pip"></th></tr></thead>
+          <tbody>
+            <tr><td data-i18n="u.int"></td><td><span style="font-family:var(--font-mono)">1</span></td><td>—</td></tr>
+            <tr><td><span class="sw k-A"></span> <span data-i18n="u.add"></span></td><td><input type="number" id="lat-add" min="1" max="60" data-i18n-aria="lat.add"></td><td><label class="check"><input type="checkbox" id="pip-add"> <span data-i18n="yes"></span></label></td></tr>
+            <tr><td><span class="sw k-M"></span> <span data-i18n="u.mul"></span></td><td><input type="number" id="lat-mul" min="1" max="60" data-i18n-aria="lat.mul"></td><td><label class="check"><input type="checkbox" id="pip-mul"> <span data-i18n="yes"></span></label></td></tr>
+            <tr><td><span class="sw k-D"></span> <span data-i18n="u.div"></span></td><td><input type="number" id="lat-div" min="1" max="60" data-i18n-aria="lat.div"></td><td><label class="check"><input type="checkbox" id="pip-div"> <span data-i18n="yes"></span></label></td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="padding:0" data-i18n="cpu.note"></p>
+      </div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="panel" aria-labelledby="h-res">
+      <div class="panel-h"><h2 id="h-res" data-i18n="res.h"></h2><span class="label" id="cfg-summary"></span></div>
+      <div class="stats" id="stats"></div>
+      <div class="breakdown" id="breakdown"></div>
+      <div class="ref" id="ref" hidden></div>
+      <div id="warn"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-pipe" id="pipe-panel" hidden>
+      <div class="panel-h"><h2 id="h-pipe" data-i18n="pipe.h"></h2><span class="label" data-i18n="pipe.keys"></span></div>
+      <div class="stepbar">
+        <button class="btn small" type="button" id="st-first" data-i18n-title="st.first" data-i18n-aria="st.first">⏮</button>
+        <button class="btn small" type="button" id="st-prev" data-i18n-title="st.prev" data-i18n-aria="st.prev">◀</button>
+        <button class="btn small primary" type="button" id="st-play" data-i18n-aria="st.playAria"></button>
+        <button class="btn small" type="button" id="st-next" data-i18n-title="st.next" data-i18n-aria="st.next">▶︎|</button>
+        <button class="btn small" type="button" id="st-last" data-i18n-title="st.last" data-i18n-aria="st.last">⏭</button>
+        <span class="now-label" id="st-now"></span>
+        <input type="range" id="st-range" min="1" max="1" value="1" data-i18n-aria="st.cycle">
+        <select id="st-speed" data-i18n-aria="st.speed">
+          <option value="900" data-i18n="st.slow"></option>
+          <option value="450" selected data-i18n="st.normal"></option>
+          <option value="150" data-i18n="st.fast"></option>
+        </select>
+      </div>
+      <div class="pipe-wrap"><div class="pipe" id="pipe"></div></div>
+      <div class="events" id="events"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-diag">
+      <div class="panel-h"><h2 id="h-diag" data-i18n="diag.h"></h2>
+        <div class="modes" role="group" data-i18n-aria="modes.aria">
+          <button type="button" id="mode-full" aria-pressed="true" data-i18n="mode.full"></button>
+          <button type="button" id="mode-step" aria-pressed="false" data-i18n="mode.step"></button>
+        </div>
+      </div>
+      <div class="legend" id="legend"></div>
+      <div class="diag-wrap" id="diag"></div>
+      <div class="pager" id="pager"></div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-det">
+      <div class="panel-h">
+        <h2 id="h-det" data-i18n="det.h"></h2>
+        <div class="tabs" role="tablist">
+          <button role="tab" id="tab-stalls" aria-selected="true" type="button" data-i18n="tab.stalls"></button>
+          <button role="tab" id="tab-regs" aria-selected="false" type="button" data-i18n="tab.regs"></button>
+          <button role="tab" id="tab-mem" aria-selected="false" type="button" data-i18n="tab.mem"></button>
+        </div>
+      </div>
+      <div id="det-stalls" class="details"></div>
+      <div id="det-regs" class="panel-b" hidden></div>
+      <div id="det-mem" class="panel-b scroll-x" hidden></div>
+    </section>
+  </div>
+</div>
+
+<footer class="foot">
+  <p data-i18n="foot1"></p>
+  <p data-i18n-html="foot2"></p>
+</footer>
+
+<script>
+"use strict";
+/* ================= Languages ================= */
+const I18N = {
+es: {
+  'lang.aria':'Idioma',
+  'hdr.sub':'Segmentación en orden de 5 etapas con unidades de coma flotante multiciclo, según el apéndice C de Hennessy y Patterson.',
+  'prog.h':'Programa', 'prog.isa':'Ensamblador RISC-V (RV64IMFD)',
+  'ex.label':'Ejemplo', 'ex.load':'Cargar', 'code.aria':'Código ensamblador',
+  'run':'Ejecutar', 'setref':'Fijar como referencia', 'setref.title':'Guarda los ciclos de esta versión para comparar con la siguiente', 'hint':'Ctrl + Enter ejecuta',
+  'cpu.h':'Procesador', 'reset':'Valores del libro',
+  'model.label':'Modelo de temporización', 'model.ch3':'Latencias del capítulo 3', 'model.appc':'Detallado del apéndice C',
+  'model.note.ch3':'Reproduce las latencias de la tabla del capítulo 3 (carga→FP 1, FP→FP 3, FP→almacenamiento 2). No hay conflictos en MEM/WB. El almacenamiento usa el dato en MEM; si no va a llegar a tiempo, la instrucción se detiene en ID y no ocupa la etapa EX.',
+  'model.note.appc':'Reproduce los diagramas del apéndice C: las operaciones FP también ocupan MEM y WB, así que hay conflictos de escritura. El almacenamiento usa el dato en MEM, pero avanza hasta EX y espera allí a que pueda adelantarse, bloqueando a las instrucciones enteras siguientes.',
+  'fwd':'Adelantamiento de resultados (<i>forwarding</i>)',
+  'stallfirst':'Dibujar las paradas antes de la etapa',
+  'stallfirst.note':'Es la convención de la 7.ª edición de Hennessy-Patterson. Desmárcalo para usar la de algunas ediciones anteriores, que dibujan la etapa y después las paradas mientras la instrucción espera en ella.',
+  'branch.label':'Tratamiento de saltos', 'branch.pnt':'Predecir no tomado', 'branch.freeze':'Congelar el pipeline', 'branch.delayed':'Salto retardado (didáctico, como en MIPS)',
+  'branch.note.delayed':'RISC-V no tiene salto retardado: este modo es didáctico y sigue la semántica de MIPS, con 1 hueco que se ejecuta siempre. Con los saltos resueltos en EX, el hueco solo cubre uno de los dos ciclos y el otro se pierde.',
+  'units.unit':'Unidad', 'units.lat':'Ciclos en EX', 'units.pip':'Segmentada',
+  'u.int':'Entera (EX)', 'u.add':'Sumador FP', 'u.mul':'Multiplicador FP', 'u.div':'Divisor FP', 'yes':'sí',
+  'lat.add':'Ciclos de ejecución del sumador FP', 'lat.mul':'Ciclos de ejecución del multiplicador FP', 'lat.div':'Ciclos de ejecución del divisor FP',
+  'cpu.note':'Ciclos que la operación pasa en su unidad. La latencia del libro es un ciclo menos: sumador 4 → latencia 3, multiplicador 7 → latencia 6, divisor 25 → latencia 24 (intervalo de iniciación 25 si no está segmentado). Las paradas por WAW y por unidades no segmentadas se detectan en ID.',
+  'res.h':'Resultados',
+  'pipe.h':'Estado del pipeline', 'pipe.keys':'← → para cambiar de ciclo',
+  'st.first':'Ir al primer ciclo', 'st.prev':'Ciclo anterior', 'st.next':'Ciclo siguiente', 'st.last':'Ir al último ciclo',
+  'st.play':'▶ Reproducir', 'st.pause':'❚❚ Pausa', 'st.playAria':'Reproducir o pausar', 'st.cycle':'Ciclo', 'st.speed':'Velocidad',
+  'st.slow':'Lento', 'st.normal':'Normal', 'st.fast':'Rápido',
+  'diag.h':'Diagrama de ciclos', 'modes.aria':'Modo de ejecución', 'mode.full':'Completo', 'mode.step':'Ciclo a ciclo',
+  'det.h':'Detalle', 'tab.stalls':'Paradas', 'tab.regs':'Registros', 'tab.mem':'Memoria',
+  'foot1':'Pipeline IF, ID, EX, MEM, WB en orden. Las operaciones FP salen del ID hacia su unidad (A1…An, M1…Mn, D1…Dn) y después pasan por MEM y WB. Con adelantamiento, un resultado se puede usar en el ciclo siguiente a su última etapa de ejecución (o a MEM en las cargas); un almacenamiento recibe el dato en MEM. Sin adelantamiento, el dato se lee en ID durante el WB del productor.',
+  'foot2':'Simplificaciones: <code>la</code> y <code>li</code> cuentan como una instrucción; los registros enteros se tratan como enteros de 64 bits; las operaciones <code>.s</code> usan las mismas unidades que las <code>.d</code>. Se admiten etiquetas, <code>.data</code>, <code>.text</code>, <code>.double</code>, <code>.float</code>, <code>.dword</code>, <code>.word</code> y <code>.space</code>.',
+  // assembler and runtime errors
+  'err.dataFull':'El segmento de datos no cabe en la memoria simulada (64 KiB)',
+  'err.dupLabel':'La etiqueta «{name}» está definida dos veces',
+  'err.dirData':'La directiva {dir} solo puede usarse en la sección .data',
+  'err.spaceN':'.space necesita un número de bytes',
+  'err.dirUnsupported':'Directiva no admitida: {dir}',
+  'err.dirNeedsValue':'{dir} necesita al menos un valor',
+  'err.badNum':'«{a}» no es un valor numérico válido',
+  'err.insInText':'Las instrucciones deben ir en la sección .text',
+  'err.noInstr':'No hay instrucciones en la sección .text',
+  'err.nOps1':'«{mn}» necesita {k} operando', 'err.nOps':'«{mn}» necesita {k} operandos',
+  'err.notXreg':'«{tok}» no es un registro entero (x0–x31)',
+  'err.notFreg':'«{tok}» no es un registro de coma flotante (f0–f31)',
+  'err.badImm':'«{tok}» no es un inmediato entero válido',
+  'err.badMem':'«{op}» no es un operando de memoria (desplazamiento(registro))',
+  'err.noCodeLabel':'La etiqueta de código «{l}» no está definida',
+  'err.noDataLabel':'La etiqueta de datos «{l}» no está definida',
+  'err.unsupported':'«{mn}» no está admitida en este simulador',
+  'err.unknown':'Instrucción desconocida: «{mn}»',
+  'err.oob':'Acceso a memoria fuera del segmento de datos (dirección 0x{a})',
+  'err.misaligned':'Acceso desalineado a la dirección 0x{a}',
+  'err.branchInSlot':'Hay un salto dentro del hueco de retardo de otro salto',
+  'err.line':'Línea {l}: ',
+  'warn.limit':'Se detuvo la simulación tras {n} instrucciones. ¿Hay un bucle infinito?',
+  // stall causes
+  'why.raw':'espera {r} de «{text}» (línea {line})',
+  'why.data':'el dato {r} llega de «{text}» (línea {line})',
+  'why.exBusy':'la etapa EX está ocupada por un almacenamiento que espera su dato',
+  'why.unitBusy':'el {unit} no está segmentado y sigue ocupado',
+  'why.memBusy':'MEM ocupada por «{text}» (línea {line})',
+  'why.wbConflict':'llegaría a MEM/WB a la vez que «{text}» (línea {line})',
+  'why.waw':'escritura pendiente en {r} de «{text}» (línea {line})',
+  'why.idBusy':'la etapa ID está ocupada',
+  'unit.int':'unidad entera (EX)', 'unit.add':'sumador FP', 'unit.mul':'multiplicador FP', 'unit.div':'divisor FP',
+  'type.raw':'Riesgo RAW', 'type.struct':'Riesgo estructural', 'type.waw':'Riesgo WAW', 'type.control':'Control', 'type.wait':'Espera',
+  'nextAddr':'(siguiente dirección)',
+  'cell.waitID':'Esperando: la etapa ID está ocupada', 'cell.waitIF':'Esperando en IF: la etapa ID está ocupada',
+  'cell.flushed':'Instrucción anulada: el salto anterior se ha tomado',
+  'cell.ctrlFreeze':'Ciclo perdido: la búsqueda se congela hasta que se resuelve «{b}»',
+  'ev.freeze':'Se congela la búsqueda hasta que se resuelva {b}: se pierde un ciclo',
+  'resolve.label':'Los saltos se resuelven en', 'resolve.ex':'EX (7.ª edición, RISC-V)', 'resolve.id':'ID (ediciones MIPS)',
+  'resolve.note.ex':'El salto se decide al final de EX: lee sus registros como cualquier otra instrucción (sin parada tras un addi), pero si se toma se pierden 2 ciclos.',
+  'resolve.note.id':'El salto se decide en ID: si se toma solo se pierde 1 ciclo, pero necesita sus registros antes (1 parada tras una operación entera y 2 tras una carga).',
+  'sum.resEX':'saltos en EX', 'sum.resID':'saltos en ID', 'leg.control':'Congelación (salto)', 'cell.wait':'Esperando', 'cell.inEX':' (en EX)',
+  // results
+  'sum.ch3':'latencias del cap. 3', 'sum.appc':'modelo del apéndice C', 'sum.fwdOn':'con adelantamiento', 'sum.fwdOff':'sin adelantamiento',
+  'sum.pnt':'predecir no tomado', 'sum.freeze':'congelar', 'sum.delayed':'salto retardado (didáctico)',
+  'stat.cycles':'Ciclos', 'stat.instr':'Instrucciones', 'stat.cpi':'CPI', 'stat.stalls':'Ciclos de parada',
+  'bd.title':'Paradas por tipo', 'bd.raw':'RAW', 'bd.struct':'Estructurales', 'bd.waw':'WAW', 'bd.control':'Control (saltos)',
+  'ref.label':'Referencia', 'ref.now':'Ahora', 'ref.speedup':'aceleración', 'ref.clear':'Quitar', 'ref.yours':'tu versión',
+  'w.cycle':'ciclo', 'w.cycles':'ciclos',
+  'diag.none':'No hay instrucciones que mostrar.', 'diag.instr':'Instrucción', 'diag.slot':'hueco',
+  'pager.step':'Ciclo {c} de {n} · se muestran las instrucciones buscadas hasta este ciclo',
+  'pager.prev':'Anteriores', 'pager.next':'Siguientes', 'pager.range':'Instrucciones {a}–{b} de {n}',
+  'pager.rows':'{n} filas en el diagrama (incluye instrucciones anuladas)',
+  'pipe.now':'Ciclo {c} / {n}', 'stage.stalled':' · parada', 'stage.stallTitle':' — parada: {why}',
+  'lane.int':'Entera', 'lane.add':'Suma', 'lane.mul':'Mult.', 'lane.div':'Div.',
+  'lane.notPip':'sin segmentar', 'lane.free':'libre',
+  'ev.title':'Qué ocurre en el ciclo {c}', 'ev.none':'Nada relevante en este ciclo.',
+  'ev.fetch':'Se busca {i}', 'ev.flush':'Se anula {i}: el salto se ha tomado', 'ev.wait':'{i} espera en {st}: {why}',
+  'ev.resolved':'{i} se resuelve: {res}', 'ev.taken':'salta', 'ev.notTaken':'no salta', 'ev.writes':'{i} escribe {dst} ← {v}',
+  'det.reason':'{n} · {type} en {where}: {why}', 'det.at':'(línea {l}, ciclo {c})',
+  'det.none':'Ninguna parada: el pipeline no se detiene en todo el programa.',
+  'regs.fp':'Coma flotante', 'regs.int':'Enteros distintos de cero', 'regs.whenStep':' al final del ciclo {c}', 'regs.whenEnd':' al terminar',
+  'regs.allZero':'Todos valen cero.',
+  'mem.none':'El programa no declara datos en .data.', 'mem.addr':'Dirección', 'mem.label':'Etiqueta', 'mem.type':'Tipo',
+  'mem.init':'Inicial', 'mem.final':'Final', 'mem.cycle':'Ciclo {c}',
+  'leg.IF':'Búsqueda', 'leg.ID':'Decodificación', 'leg.EX':'Ejecución entera', 'leg.A':'Sumador FP', 'leg.M':'Multiplicador FP',
+  'leg.D':'Divisor FP', 'leg.MEM':'Memoria', 'leg.WB':'Escritura', 'leg.raw':'RAW', 'leg.struct':'Estructural', 'leg.waw':'WAW',
+  'leg.wait':'Espera en IF', 'leg.flush':'Anulada',
+  'restored':'Se ha recuperado el último programa que editaste en este navegador.',
+},
+en: {
+  'lang.aria':'Language',
+  'hdr.sub':'In-order 5-stage pipeline with multicycle floating-point units, following Appendix C of Hennessy and Patterson.',
+  'prog.h':'Program', 'prog.isa':'RISC-V assembly (RV64IMFD)',
+  'ex.label':'Example', 'ex.load':'Load', 'code.aria':'Assembly code',
+  'run':'Run', 'setref':'Set as baseline', 'setref.title':'Saves the cycle count of this version to compare it with the next one', 'hint':'Ctrl + Enter runs',
+  'cpu.h':'Processor', 'reset':'Textbook values',
+  'model.label':'Timing model', 'model.ch3':'Chapter 3 latencies', 'model.appc':'Detailed Appendix C',
+  'model.note.ch3':'Uses the latency table of Chapter 3 (load→FP 1, FP→FP 3, FP→store 2). There are no MEM/WB conflicts. A store uses its data in MEM; if the data will not arrive in time, the store is held in ID and does not occupy EX.',
+  'model.note.appc':'Reproduces the Appendix C diagrams: FP operations also use MEM and WB, so write-port conflicts appear. A store uses its data in MEM, but it moves on to EX and waits there until the data can be forwarded, blocking the integer instructions behind it.',
+  'fwd':'Result forwarding',
+  'stallfirst':'Draw stalls before the stage',
+  'stallfirst.note':'This is the convention of the 7th edition of Hennessy-Patterson. Untick it to use the one in some earlier editions, which draw the stage first and then the stalls while the instruction waits in it.',
+  'branch.label':'Branch handling', 'branch.pnt':'Predict not taken', 'branch.freeze':'Freeze the pipeline', 'branch.delayed':'Delayed branch (teaching mode, as in MIPS)',
+  'branch.note.delayed':'RISC-V has no delayed branches: this is a teaching mode that follows MIPS semantics, with 1 slot that always executes. With branches resolved in EX, the slot covers only one of the two cycles and the other is lost.',
+  'units.unit':'Unit', 'units.lat':'EX cycles', 'units.pip':'Pipelined',
+  'u.int':'Integer (EX)', 'u.add':'FP adder', 'u.mul':'FP multiplier', 'u.div':'FP divider', 'yes':'yes',
+  'lat.add':'FP adder execution cycles', 'lat.mul':'FP multiplier execution cycles', 'lat.div':'FP divider execution cycles',
+  'cpu.note':'Cycles the operation spends in its unit. The textbook latency is one cycle less: adder 4 → latency 3, multiplier 7 → latency 6, divider 25 → latency 24 (initiation interval 25 when not pipelined). WAW stalls and stalls for non-pipelined units are detected in ID.',
+  'res.h':'Results',
+  'pipe.h':'Pipeline state', 'pipe.keys':'← → to change cycle',
+  'st.first':'Go to the first cycle', 'st.prev':'Previous cycle', 'st.next':'Next cycle', 'st.last':'Go to the last cycle',
+  'st.play':'▶ Play', 'st.pause':'❚❚ Pause', 'st.playAria':'Play or pause', 'st.cycle':'Cycle', 'st.speed':'Speed',
+  'st.slow':'Slow', 'st.normal':'Normal', 'st.fast':'Fast',
+  'diag.h':'Cycle diagram', 'modes.aria':'Execution mode', 'mode.full':'Full run', 'mode.step':'Cycle by cycle',
+  'det.h':'Details', 'tab.stalls':'Stalls', 'tab.regs':'Registers', 'tab.mem':'Memory',
+  'foot1':'In-order IF, ID, EX, MEM, WB pipeline. FP operations leave ID for their unit (A1…An, M1…Mn, D1…Dn) and then go through MEM and WB. With forwarding, a result can be used in the cycle after its last execution stage (or after MEM for loads); a store receives its data in MEM. Without forwarding, the value is read in ID during the producer’s WB.',
+  'foot2':'Simplifications: <code>la</code> and <code>li</code> count as one instruction; integer registers are treated as 64-bit integers; <code>.s</code> operations use the same units as <code>.d</code>. Labels, <code>.data</code>, <code>.text</code>, <code>.double</code>, <code>.float</code>, <code>.dword</code>, <code>.word</code> and <code>.space</code> are supported.',
+  'err.dataFull':'The data segment does not fit in the simulated memory (64 KiB)',
+  'err.dupLabel':'Label “{name}” is defined twice',
+  'err.dirData':'Directive {dir} can only be used in the .data section',
+  'err.spaceN':'.space needs a number of bytes',
+  'err.dirUnsupported':'Unsupported directive: {dir}',
+  'err.dirNeedsValue':'{dir} needs at least one value',
+  'err.badNum':'“{a}” is not a valid number',
+  'err.insInText':'Instructions must be in the .text section',
+  'err.noInstr':'There are no instructions in the .text section',
+  'err.nOps1':'“{mn}” needs {k} operand', 'err.nOps':'“{mn}” needs {k} operands',
+  'err.notXreg':'“{tok}” is not an integer register (x0–x31)',
+  'err.notFreg':'“{tok}” is not a floating-point register (f0–f31)',
+  'err.badImm':'“{tok}” is not a valid integer immediate',
+  'err.badMem':'“{op}” is not a memory operand (offset(register))',
+  'err.noCodeLabel':'Code label “{l}” is not defined',
+  'err.noDataLabel':'Data label “{l}” is not defined',
+  'err.unsupported':'“{mn}” is not supported by this simulator',
+  'err.unknown':'Unknown instruction: “{mn}”',
+  'err.oob':'Memory access outside the data segment (address 0x{a})',
+  'err.misaligned':'Misaligned access to address 0x{a}',
+  'err.branchInSlot':'There is a branch inside the delay slot of another branch',
+  'err.line':'Line {l}: ',
+  'warn.limit':'The simulation stopped after {n} instructions. Is there an infinite loop?',
+  'why.raw':'waits for {r} from “{text}” (line {line})',
+  'why.data':'data {r} comes from “{text}” (line {line})',
+  'why.exBusy':'EX is occupied by a store waiting for its data',
+  'why.unitBusy':'the {unit} is not pipelined and is still busy',
+  'why.memBusy':'MEM is occupied by “{text}” (line {line})',
+  'why.wbConflict':'would reach MEM/WB at the same time as “{text}” (line {line})',
+  'why.waw':'pending write to {r} by “{text}” (line {line})',
+  'why.idBusy':'the ID stage is busy',
+  'unit.int':'integer unit (EX)', 'unit.add':'FP adder', 'unit.mul':'FP multiplier', 'unit.div':'FP divider',
+  'type.raw':'RAW hazard', 'type.struct':'Structural hazard', 'type.waw':'WAW hazard', 'type.control':'Control', 'type.wait':'Wait',
+  'nextAddr':'(next address)',
+  'cell.waitID':'Waiting: the ID stage is busy', 'cell.waitIF':'Waiting in IF: the ID stage is busy',
+  'cell.flushed':'Instruction squashed: the previous branch was taken',
+  'cell.ctrlFreeze':'Lost cycle: fetch is frozen until “{b}” is resolved',
+  'ev.freeze':'Fetch is frozen until {b} is resolved: one cycle is lost',
+  'resolve.label':'Branches are resolved in', 'resolve.ex':'EX (7th edition, RISC-V)', 'resolve.id':'ID (MIPS editions)',
+  'resolve.note.ex':'The branch is decided at the end of EX: it reads its registers like any other instruction (no stall after an addi), but 2 cycles are lost when it is taken.',
+  'resolve.note.id':'The branch is decided in ID: only 1 cycle is lost when it is taken, but it needs its registers earlier (1 stall after an integer op and 2 after a load).',
+  'sum.resEX':'branches in EX', 'sum.resID':'branches in ID', 'leg.control':'Freeze (branch)', 'cell.wait':'Waiting', 'cell.inEX':' (in EX)',
+  'sum.ch3':'chapter 3 latencies', 'sum.appc':'Appendix C model', 'sum.fwdOn':'with forwarding', 'sum.fwdOff':'no forwarding',
+  'sum.pnt':'predict not taken', 'sum.freeze':'freeze', 'sum.delayed':'delayed branch (teaching)',
+  'stat.cycles':'Cycles', 'stat.instr':'Instructions', 'stat.cpi':'CPI', 'stat.stalls':'Stall cycles',
+  'bd.title':'Stalls by type', 'bd.raw':'RAW', 'bd.struct':'Structural', 'bd.waw':'WAW', 'bd.control':'Control (branches)',
+  'ref.label':'Baseline', 'ref.now':'Now', 'ref.speedup':'speedup', 'ref.clear':'Clear', 'ref.yours':'your version',
+  'w.cycle':'cycle', 'w.cycles':'cycles',
+  'diag.none':'No instructions to show.', 'diag.instr':'Instruction', 'diag.slot':'slot',
+  'pager.step':'Cycle {c} of {n} · showing the instructions fetched up to this cycle',
+  'pager.prev':'Previous', 'pager.next':'Next', 'pager.range':'Instructions {a}–{b} of {n}',
+  'pager.rows':'{n} rows in the diagram (including squashed instructions)',
+  'pipe.now':'Cycle {c} / {n}', 'stage.stalled':' · stall', 'stage.stallTitle':' — stall: {why}',
+  'lane.int':'Int.', 'lane.add':'Add', 'lane.mul':'Mul.', 'lane.div':'Div.',
+  'lane.notPip':'not pipelined', 'lane.free':'idle',
+  'ev.title':'What happens in cycle {c}', 'ev.none':'Nothing relevant happens in this cycle.',
+  'ev.fetch':'{i} is fetched', 'ev.flush':'{i} is squashed: the branch was taken', 'ev.wait':'{i} waits in {st}: {why}',
+  'ev.resolved':'{i} is resolved: {res}', 'ev.taken':'taken', 'ev.notTaken':'not taken', 'ev.writes':'{i} writes {dst} ← {v}',
+  'det.reason':'{n} · {type} in {where}: {why}', 'det.at':'(line {l}, cycle {c})',
+  'det.none':'No stalls: the pipeline never stops during the whole program.',
+  'regs.fp':'Floating point', 'regs.int':'Non-zero integer registers', 'regs.whenStep':' at the end of cycle {c}', 'regs.whenEnd':' at the end',
+  'regs.allZero':'All of them are zero.',
+  'mem.none':'The program declares no data in .data.', 'mem.addr':'Address', 'mem.label':'Label', 'mem.type':'Type',
+  'mem.init':'Initial', 'mem.final':'Final', 'mem.cycle':'Cycle {c}',
+  'leg.IF':'Fetch', 'leg.ID':'Decode', 'leg.EX':'Integer execute', 'leg.A':'FP adder', 'leg.M':'FP multiplier',
+  'leg.D':'FP divider', 'leg.MEM':'Memory', 'leg.WB':'Write-back', 'leg.raw':'RAW', 'leg.struct':'Structural', 'leg.waw':'WAW',
+  'leg.wait':'Wait in IF', 'leg.flush':'Squashed',
+  'restored':'Your last program in this browser has been restored.',
+}};
+let LANG = 'es';
+function t(k, p){
+  const s = (I18N[LANG] && I18N[LANG][k]) ?? I18N.es[k] ?? k;
+  return p ? s.replace(/\{(\w+)\}/g, (m, n) => (n in p ? p[n] : m)) : s;
+}
+
+/* ================= Engine (no DOM) ================= */
+const LIMIT_DYN = 4000;
+const DATA_BASE = 0x10000, MEM_SIZE = 0x10000;
+
+const INT_ABI = {zero:0,ra:1,sp:2,gp:3,tp:4,t0:5,t1:6,t2:7,s0:8,fp:8,s1:9};
+for (let i=0;i<8;i++) INT_ABI['a'+i]=10+i;
+for (let i=2;i<12;i++) INT_ABI['s'+i]=16+i;
+for (let i=3;i<7;i++) INT_ABI['t'+i]=25+i;
+const FP_ABI = {fs0:8,fs1:9};
+for (let i=0;i<8;i++){ FP_ABI['ft'+i]=i; FP_ABI['fa'+i]=10+i; }
+for (let i=2;i<12;i++) FP_ABI['fs'+i]=16+i;
+for (let i=8;i<12;i++) FP_ABI['ft'+i]=20+i;
+
+class AsmError extends Error { constructor(line,msg){ super(msg); this.line=line; } }
+
+// Integer registers: signed 64-bit BigInt (exact arithmetic, no precision loss).
+const w64 = v => BigInt.asIntN(64, v);
+const u64 = v => BigInt.asUintN(64, v);
+const ALU = {
+  add:(a,b)=>a+b, sub:(a,b)=>a-b, mul:(a,b)=>a*b,
+  and:(a,b)=>a&b, or:(a,b)=>a|b, xor:(a,b)=>a^b,
+  slt:(a,b)=>a<b?1n:0n, sltu:(a,b)=>u64(a)<u64(b)?1n:0n,
+  sll:(a,b)=>a<<(b&63n), srl:(a,b)=>u64(a)>>(b&63n), sra:(a,b)=>a>>(b&63n),
+  div:(a,b)=>b===0n?-1n:a/b, rem:(a,b)=>b===0n?a:a%b,
+};
+// Float -> integer conversion as in RISC-V: round to nearest even and saturate (NaN -> maximum).
+function fcvtInt(v, bits){
+  const max = (1n << BigInt(bits - 1)) - 1n, min = -(1n << BigInt(bits - 1));
+  if (Number.isNaN(v)) return max;
+  if (v === Infinity) return max;
+  if (v === -Infinity) return min;
+  let r = Math.round(v);
+  if (Math.abs(v % 1) === 0.5) r = 2 * Math.round(v / 2);
+  const b = BigInt(r);
+  return b > max ? max : b < min ? min : b;
+}
+// Immediates: decimal, hexadecimal (0x) or binary (0b), with an optional sign.
+function parseIntLit(str){
+  const m = String(str).trim().match(/^([+-]?)(0x[0-9a-f]+|0b[01]+|\d+)$/i);
+  if (!m) return null;
+  const v = Number(m[2]);
+  return m[1] === '-' ? -v : v;
+}
+const IMM_OPS = {addi:'add',andi:'and',ori:'or',xori:'xor',slti:'slt',sltiu:'sltu',slli:'sll',srli:'srl',srai:'sra'};
+const BR = {beq:(a,b)=>a===b, bne:(a,b)=>a!==b, blt:(a,b)=>a<b, bge:(a,b)=>a>=b, bltu:(a,b)=>u64(a)<u64(b), bgeu:(a,b)=>u64(a)>=u64(b)};
+
+function assemble(src){
+  const lines = src.split('\n');
+  const buf = new ArrayBuffer(MEM_SIZE), dv = new DataView(buf);
+  const labels = {}, dataItems = [], pending = [];
+  let seg = 'text', dp = 0;
+  const align = n => { dp = Math.ceil(dp/n)*n; };
+  const checkRoom = (ln,n) => { if (dp+n > MEM_SIZE) throw new AsmError(ln,t('err.dataFull')); };
+
+  lines.forEach((rawLine, i) => {
+    const ln = i+1;
+    let tx = rawLine.replace(/(#|\/\/).*$/,'').trim();
+    let m;
+    while ((m = tx.match(/^([A-Za-z_.$][\w.$]*)\s*:/))) {
+      const name = m[1];
+      if (labels[name]) throw new AsmError(ln, t('err.dupLabel',{name}));
+      if (seg==='text') labels[name] = {seg:'text', idx:pending.length};
+      else labels[name] = {seg:'data', addr:DATA_BASE+dp, pendingAlign:true, name};
+      tx = tx.slice(m[0].length).trim();
+    }
+    if (!tx) return;
+    if (tx[0]==='.') {
+      const dm = tx.match(/^(\.\w+)\s*(.*)$/);
+      const dir = dm[1].toLowerCase(), args = dm[2] ? dm[2].split(',').map(s=>s.trim()).filter(Boolean) : [];
+      if (dir==='.data'){ seg='data'; return; }
+      if (dir==='.text'){ seg='text'; return; }
+      if (['.globl','.global','.section','.option','.file','.type','.size','.p2align'].includes(dir)) return;
+      if (seg!=='data') throw new AsmError(ln, t('err.dirData',{dir}));
+      const sizes = {'.double':8,'.dword':8,'.word':4,'.float':4};
+      // newly defined data labels point to the first element after alignment
+      const fixLabels = () => { for (const k in labels){ const L=labels[k]; if (L.pendingAlign){ L.addr = DATA_BASE+dp; L.pendingAlign=false; } } };
+      if (dir==='.align'){ align(1<<(parseInt(args[0])||0)); return; }
+      if (dir==='.space' || dir==='.zero'){ fixLabels(); const n=Number(args[0]); if(!Number.isInteger(n)||n<0) throw new AsmError(ln,t('err.spaceN')); checkRoom(ln,n); dp+=n; return; }
+      if (!(dir in sizes)) throw new AsmError(ln, t('err.dirUnsupported',{dir}));
+      if (!args.length) throw new AsmError(ln, t('err.dirNeedsValue',{dir}));
+      const sz = sizes[dir]; align(sz); fixLabels();
+      for (const a of args){
+        const isInt = dir==='.dword' || dir==='.word';
+        const iv = isInt ? parseIntLit(a) : null;
+        const v = isInt ? iv : Number(a);
+        if (v === null || !Number.isFinite(v) || (isInt && !Number.isSafeInteger(v))) throw new AsmError(ln, t('err.badNum',{a}));
+        checkRoom(ln, sz);
+        const addr = DATA_BASE+dp, label = Object.keys(labels).find(k=>labels[k].seg==='data'&&labels[k].addr===addr) || '';
+        if (dir==='.double') dv.setFloat64(dp, v, true);
+        else if (dir==='.float') dv.setFloat32(dp, v, true);
+        else if (dir==='.dword') dv.setBigInt64(dp, BigInt(Math.trunc(v)), true);
+        else dv.setInt32(dp, Math.trunc(v)|0, true);
+        dataItems.push({addr, type:dir.slice(1), label, line:ln});
+        dp += sz;
+      }
+      return;
+    }
+    if (seg!=='text') throw new AsmError(ln, t('err.insInText'));
+    pending.push({ln, text:tx});
+  });
+  for (const k in labels){ const L=labels[k]; if (L.pendingAlign){ L.addr=DATA_BASE+dp; L.pendingAlign=false; } }
+
+  const instrs = pending.map(p => parseInstr(p.text, p.ln, labels));
+  if (!instrs.length) throw new AsmError(1, t('err.noInstr'));
+  return {instrs, labels, memInit: buf, dataItems};
+}
+
+function parseInstr(text, ln, labels){
+  const m = text.match(/^(\S+)\s*(.*)$/);
+  const mn = m[1].toLowerCase();
+  const ops = m[2] ? m[2].split(',').map(s=>s.trim()) : [];
+  const display = mn + (ops.length ? ' ' + ops.join(', ') : '');
+  const need = k => { if (ops.length!==k) throw new AsmError(ln, t(k===1?'err.nOps1':'err.nOps',{mn,k})); };
+  const reg = (tok, kind) => {
+    const rn = (tok||'').trim().toLowerCase(); let n=null, mm;
+    if (kind==='x'){ if ((mm=rn.match(/^x(\d{1,2})$/)) && +mm[1]<32) n=+mm[1]; else if (Object.hasOwn(INT_ABI, rn)) n=INT_ABI[rn]; }
+    else { if ((mm=rn.match(/^f(\d{1,2})$/)) && +mm[1]<32) n=+mm[1]; else if (Object.hasOwn(FP_ABI, rn)) n=FP_ABI[rn]; }
+    if (n===null) throw new AsmError(ln, t(kind==='x' ? 'err.notXreg' : 'err.notFreg', {tok}));
+    return {f: kind==='f', n};
+  };
+  const X = i => reg(ops[i],'x'), F = i => reg(ops[i],'f');
+  const imm = tok => {
+    const v = parseIntLit(tok);
+    if (v !== null && Number.isSafeInteger(v)) return v;
+    throw new AsmError(ln, t('err.badImm',{tok}));
+  };
+  const memop = i => {
+    const mm = (ops[i]||'').match(/^([^()]*)\(\s*([^)]+?)\s*\)$/);
+    if (!mm) throw new AsmError(ln, t('err.badMem',{op:ops[i]}));
+    return {off: mm[1].trim()==='' ? 0 : imm(mm[1].trim()), base: reg(mm[2],'x')};
+  };
+  const target = i => {
+    const L = labels[ops[i]];
+    if (!L || L.seg!=='text') throw new AsmError(ln, t('err.noCodeLabel',{l:ops[i]}));
+    return L.idx;
+  };
+  const base = {mn, text:display, line:ln};
+  const alu = (fn, rd, a, b, bimm) => ({...base, kind:'alu', unit:'int', fn, rd, srcs:[a,b].filter(r=>r&&!(r.n===0&&!r.f)), a, b, imm:bimm});
+  const X0 = {f:false,n:0};
+
+  if (ALU[mn] && !IMM_OPS[mn]) { need(3); return alu(mn, X(0), X(1), X(2)); }
+  if (IMM_OPS[mn]) { need(3); return alu(IMM_OPS[mn], X(0), X(1), null, imm(ops[2])); }
+  switch (mn) {
+    case 'li': need(2); return alu('add', X(0), X0, null, imm(ops[1]));
+    case 'la': { need(2); const L=labels[ops[1]]; if(!L||L.seg!=='data') throw new AsmError(ln,t('err.noDataLabel',{l:ops[1]})); return alu('add', X(0), X0, null, L.addr); }
+    case 'mv': need(2); return alu('add', X(0), X(1), null, 0);
+    case 'nop': need(0); return {...alu('add', X0, X0, null, 0), nop:true};
+    case 'lui': need(2); return alu('add', X(0), X0, null, imm(ops[1])*4096);
+    case 'lw': case 'ld': case 'flw': case 'fld': {
+      need(2); const mo = memop(1);
+      return {...base, kind:'load', unit:'int', rd: mn[0]==='f' ? F(0) : X(0), srcs:[mo.base].filter(r=>r.n!==0), base:mo.base, off:mo.off, size: (mn==='lw'||mn==='flw')?4:8};
+    }
+    case 'sw': case 'sd': case 'fsw': case 'fsd': {
+      need(2); const mo = memop(1); const d = mn[0]==='f' ? F(0) : X(0);
+      return {...base, kind:'store', unit:'int', rd:null, srcs:[mo.base].filter(r=>r.n!==0), dataSrc: (!d.f&&d.n===0)?null:d, data:d, base:mo.base, off:mo.off, size:(mn==='sw'||mn==='fsw')?4:8};
+    }
+  }
+  if (BR[mn]) { need(3); const a=X(0), b=X(1); return {...base, kind:'branch', unit:'int', rd:null, cmp:mn, a, b, srcs:[a,b].filter(r=>r.n!==0), target:target(2)}; }
+  const brPseudo = {beqz:['beq',0,'z'], bnez:['bne',0,'z'], bltz:['blt',0,'z'], bgez:['bge',0,'z'], blez:['bge','z',0], bgtz:['blt','z',0], bgt:['blt',1,0], ble:['bge',1,0], bgtu:['bltu',1,0], bleu:['bgeu',1,0]};
+  if (brPseudo[mn]) {
+    const [cmp, ia, ib] = brPseudo[mn];
+    const isZ = ia==='z' || ib==='z'; need(isZ?2:3);
+    const a = ia==='z' ? X0 : X(ia), b = ib==='z' ? X0 : X(ib);
+    return {...base, kind:'branch', unit:'int', rd:null, cmp, a, b, srcs:[a,b].filter(r=>r.n!==0), target:target(isZ?1:2)};
+  }
+  switch (mn) {
+    case 'j': need(1); return {...base, kind:'jump', unit:'int', rd:null, srcs:[], target:target(0)};
+    case 'jal': {
+      if (ops.length===1) return {...base, kind:'jump', unit:'int', rd:{f:false,n:1}, srcs:[], target:target(0)};
+      need(2); const rd=X(0); return {...base, kind:'jump', unit:'int', rd: rd.n===0?null:rd, srcs:[], target:target(1)};
+    }
+    case 'jr': need(1); { const r=X(0); return {...base, kind:'jalr', unit:'int', rd:null, a:r, srcs:[r].filter(q=>q.n!==0)}; }
+    case 'ret': need(0); return {...base, kind:'jalr', unit:'int', rd:null, a:{f:false,n:1}, srcs:[{f:false,n:1}]};
+    case 'ecall': case 'ebreak': need(0); return {...base, kind:'halt', unit:'int', rd:null, srcs:[]};
+  }
+  const fm = mn.match(/^f(add|sub|mul|div|sqrt|min|max)\.(d|s)$/);
+  if (fm) {
+    const op = fm[1], single = fm[2]==='s';
+    const unit = (op==='mul') ? 'mul' : (op==='div'||op==='sqrt') ? 'div' : 'add';
+    if (op==='sqrt'){ need(2); return {...base, kind:'fp', unit, op, single, rd:F(0), a:F(1), srcs:[F(1)]}; }
+    need(3); return {...base, kind:'fp', unit, op, single, rd:F(0), a:F(1), b:F(2), srcs:[F(1),F(2)]};
+  }
+  const fmv = mn.match(/^f(mv|neg|abs)\.(d|s)$/);
+  if (fmv) { need(2); return {...base, kind:'fpint', unit:'int', op:fmv[1], single: fmv[2]==='s', rd:F(0), a:F(1), srcs:[F(1)]}; }
+  const fcmp = mn.match(/^f(eq|lt|le)\.(d|s)$/);
+  if (fcmp) { need(3); const rd=X(0); return {...base, kind:'fpint', unit:'int', op:'c'+fcmp[1], rd: rd.n===0?null:rd, a:F(1), b:F(2), srcs:[F(1),F(2)]}; }
+  let cv;
+  if ((cv = mn.match(/^fcvt\.(d|s)\.(w|l)$/))) { need(2); const a=X(1); return {...base, kind:'fpint', unit:'int', op:'i2f', single: cv[1]==='s', w32: cv[2]==='w', rd:F(0), a, srcs:[a].filter(r=>r.n!==0)}; }
+  if ((cv = mn.match(/^fcvt\.(w|l)\.(d|s)$/))) { need(2); const rd=X(0); return {...base, kind:'fpint', unit:'int', op:'f2i', w32: cv[1]==='w', rd: rd.n===0?null:rd, a:F(1), srcs:[F(1)]}; }
+  if (/^fmv\.d\.x$/.test(mn) || /^fmv\.x\.d$/.test(mn)) throw new AsmError(ln, t('err.unsupported',{mn}));
+  throw new AsmError(ln, t('err.unknown',{mn}));
+}
+
+const key = r => (r.f?'f':'x') + r.n;
+const UNIT_PREFIX = {add:'A', mul:'M', div:'D'};
+
+function simulate(prog, cfg){
+  const xr = new Array(32).fill(0n), fr = new Float64Array(32);
+  const buf = prog.memInit.slice(0), dv = new DataView(buf);
+  const rows = [];
+  const memOwner = new Map();
+  const avail = {}, lastW = {};
+  let intEXFree = 0; const unitFree = {add:0, mul:0, div:0};
+  let lastX = 0, nextF = 1, pc = 0, dyn = 0;
+  let slotReturn = null, slotInfo = null, pendingPre = null;   // delayed branch: where to go after the slot
+  let warning = null;
+  const stats = {raw:0, struct:0, waw:0, control:0};
+  const n = prog.instrs.length;
+  const fwd = cfg.forwarding;
+  const detailed = cfg.model !== 'ch3';
+  const resEX = cfg.resolve !== 'id';      // the branch is decided at the end of EX (7th ed.) or in ID
+  const LOST = resEX ? 2 : 1;               // cycles lost when the branch is taken
+  const memAddr = (ins, size) => {
+    const a = Number(xr[ins.base.n]) + ins.off, o = a - DATA_BASE;
+    if (o < 0 || o + size > MEM_SIZE) throw new AsmError(ins.line, t('err.oob',{a:a.toString(16)}));
+    if (o % size) throw new AsmError(ins.line, t('err.misaligned',{a:a.toString(16)}));
+    return o;
+  };
+  const latOf = u => u==='int' ? 1 : Math.max(1, cfg.lat[u]|0);
+
+  while (pc >= 0 && pc < n) {
+    if (dyn >= LIMIT_DYN) { warning = t('warn.limit',{n:LIMIT_DYN}); break; }
+    const ins = prog.instrs[pc];
+    const isSlot = slotReturn !== null;
+    const Fc = nextF;
+    const D = Math.max(Fc + 1, lastX);
+    const row = {ins, pc, F:Fc, D, X:0, M:0, W:0, stalls:[], exStalls:[], slot:isSlot, flushed:false, pre: pendingPre};
+    if (pendingPre) stats.control += pendingPre.lost;   // only counted if an instruction is actually waiting
+    pendingPre = null;
+    const ri = rows.length;
+    let Xc = D + 1;
+    const push = (to, type, why) => { if (to > Xc) { row.stalls.push({from:Xc, to, type, why}); Xc = to; return true; } return false; };
+    const isBr = ins.kind==='branch' || ins.kind==='jalr';
+    const lat = latOf(ins.unit);
+    let M = 0;
+    for (let guard = 0; guard < 100000; guard++) {
+      for (const s of ins.srcs) {
+        const a = avail[key(s)]; if (!a) continue;
+        const req = (isBr && !resEX) ? (fwd ? a.L + 2 : a.W + 1) : (fwd ? a.L + 1 : a.W + 1);
+        push(req, 'raw', t('why.raw',{r:key(s), text:a.text, line:a.line}));
+      }
+      if (fwd && ins.dataSrc && !detailed) {
+        const a = avail[key(ins.dataSrc)];
+        if (a) push(a.L, 'raw', t('why.data',{r:key(ins.dataSrc), text:a.text, line:a.line}));
+      }
+      if (!fwd && ins.dataSrc) {
+        const a = avail[key(ins.dataSrc)];
+        if (a) push(a.W + 1, 'raw', t('why.raw',{r:key(ins.dataSrc), text:a.text, line:a.line}));
+      }
+      if (ins.unit === 'int') push(intEXFree, 'struct', t('why.exBusy'));
+      else if (!cfg.pipelined[ins.unit]) push(unitFree[ins.unit], 'struct', t('why.unitBusy',{unit:t('unit.'+ins.unit)}));
+      if (ins.kind === 'store') {
+        M = Xc + 1;
+        if (!detailed) break;
+        if (fwd && ins.dataSrc) {
+          const a = avail[key(ins.dataSrc)];
+          if (a && a.L + 1 > M) { row.exStalls.push({from:M, to:a.L+1, type:'raw', why:t('why.data',{r:key(ins.dataSrc), text:a.text, line:a.line})}); M = a.L + 1; }
+        }
+        while (memOwner.has(M)) {
+          const o = rows[memOwner.get(M)];
+          row.exStalls.push({from:M, to:M+1, type:'struct', why:t('why.memBusy',{text:o.ins.text, line:o.ins.line})});
+          M++;
+        }
+        break;
+      }
+      M = Xc + lat;
+      if (detailed && memOwner.has(M)) {
+        const o = rows[memOwner.get(M)];
+        push(Xc + 1, 'struct', t('why.wbConflict',{text:o.ins.text, line:o.ins.line}));
+        continue;
+      }
+      if (ins.rd && !(ins.rd.n===0 && !ins.rd.f)) {
+        const lw = lastW[key(ins.rd)];
+        if (lw !== undefined && lw.W >= M + 1) { push(Xc + (lw.W - (M + 1)) + 1, 'waw', t('why.waw',{r:key(ins.rd), text:lw.text, line:lw.line})); continue; }
+      }
+      break;
+    }
+    row.X = Xc; row.M = M; row.W = M + 1;
+    if (!memOwner.has(M)) memOwner.set(M, ri);
+    if (ins.unit === 'int') intEXFree = M;
+    else unitFree[ins.unit] = cfg.pipelined[ins.unit] ? Xc + 1 : Xc + lat;
+    for (const s of row.stalls) stats[s.type] += s.to - s.from;
+    for (const s of row.exStalls) stats[s.type] += s.to - s.from;
+
+    // ---- functional execution ----
+    let nextPc = pc + 1, taken = false;
+    const wr = (r, v) => {
+      if (!r) return;
+      if (r.f) { fr[r.n] = Number(v); row.wkey = 'f' + r.n; row.wval = fr[r.n]; }
+      else if (r.n !== 0) { xr[r.n] = w64(BigInt(v)); row.wkey = 'x' + r.n; row.wval = xr[r.n]; }
+    };
+    const rv = r => r ? (r.f ? fr[r.n] : xr[r.n]) : 0n;
+    switch (ins.kind) {
+      case 'alu': wr(ins.rd, ALU[ins.fn](rv(ins.a), ins.b ? rv(ins.b) : BigInt(ins.imm))); break;
+      case 'load': {
+        const o = memAddr(ins, ins.size);
+        if (ins.rd.f) wr(ins.rd, ins.size===8 ? dv.getFloat64(o, true) : dv.getFloat32(o, true));
+        else wr(ins.rd, ins.size===8 ? dv.getBigInt64(o, true) : BigInt(dv.getInt32(o, true)));
+        break;
+      }
+      case 'store': {
+        const o = memAddr(ins, ins.size), v = rv(ins.data);
+        row.st = {o, size: ins.size, f: ins.data.f, v};
+        if (ins.data.f) { if (ins.size===8) dv.setFloat64(o, v, true); else dv.setFloat32(o, v, true); }
+        else { if (ins.size===8) dv.setBigInt64(o, w64(v), true); else dv.setInt32(o, Number(BigInt.asIntN(32, v)), true); }
+        break;
+      }
+      case 'branch': taken = BR[ins.cmp](rv(ins.a), rv(ins.b)); row.taken = taken; if (taken) nextPc = ins.target; break;
+      case 'jump': wr(ins.rd, BigInt((pc + 1) * 4)); taken = true; nextPc = ins.target; break;
+      case 'jalr': taken = true; nextPc = Math.floor(Number(rv(ins.a)) / 4); break;
+      case 'fp': {
+        const a = rv(ins.a), b = ins.b ? rv(ins.b) : 0;
+        let v = {add:a+b, sub:a-b, mul:a*b, div:a/b, sqrt:Math.sqrt(a), min:Math.min(a,b), max:Math.max(a,b)}[ins.op];
+        if (ins.single) v = Math.fround(v);
+        wr(ins.rd, v); break;
+      }
+      case 'fpint': {
+        if (ins.op === 'i2f') { let v = Number(ins.w32 ? BigInt.asIntN(32, rv(ins.a)) : rv(ins.a)); if (ins.single) v = Math.fround(v); wr(ins.rd, v); break; }
+        const a = rv(ins.a), b = ins.b ? rv(ins.b) : 0;
+        if (ins.op === 'f2i') { wr(ins.rd, fcvtInt(a, ins.w32 ? 32 : 64)); break; }
+        if (ins.op === 'ceq' || ins.op === 'clt' || ins.op === 'cle') { wr(ins.rd, ({ceq:a===b, clt:a<b, cle:a<=b}[ins.op]) ? 1n : 0n); break; }
+        let v = {mv:a, neg:-a, abs:Math.abs(a)}[ins.op]; if (ins.single) v = Math.fround(v);
+        wr(ins.rd, v); break;
+      }
+    }
+    if (ins.rd && !(ins.rd.n===0 && !ins.rd.f)) {
+      const L = ins.kind === 'load' ? M : M - 1;
+      avail[key(ins.rd)] = {L, W:M+1, text:ins.text, line:ins.line};
+      lastW[key(ins.rd)] = {W:M+1, text:ins.text, line:ins.line};
+    }
+    rows.push(row); dyn++;
+    lastX = Xc;
+
+    if (ins.kind === 'halt') break;
+    const isCtl = ins.kind==='branch' || ins.kind==='jump' || ins.kind==='jalr';
+    if (isCtl && isSlot) throw new AsmError(ins.line, t('err.branchInSlot'));
+    // first cycle in which the branch target is known
+    const resolvedAt = resEX ? Xc + 1 : Xc;
+    if (isSlot) {
+      pc = slotReturn; slotReturn = null;
+      nextF = Math.max(D, slotInfo.at);
+      const lost = nextF - D;           // with branches in EX one slot is not enough: one more cycle is lost
+      if (lost > 0) pendingPre = {from:D, to:nextF, lost, b:slotInfo.b};
+      slotInfo = null; continue;
+    }
+    if (isCtl) {
+      if (cfg.branch === 'delayed' && pc + 1 < n) {
+        slotReturn = nextPc; slotInfo = {at: resolvedAt, b: ins.text}; pc = pc + 1; nextF = D;
+        continue;
+      }
+      if (cfg.branch === 'freeze' || cfg.branch === 'delayed') {   // (delayed branch with no instruction for the slot: freeze)
+        nextF = resolvedAt; pendingPre = {from:D, to:nextF, lost:LOST, b:ins.text}; pc = nextPc; continue;
+      }
+      // predict not taken: if taken, squash the instructions fetched behind it
+      if (taken) {
+        let f = D;
+        for (let k = 1; k <= LOST; k++) {
+          const wrong = pc + k, dd = k === 1 ? Xc : f + 1;
+          rows.push({ins: wrong < n ? prog.instrs[wrong] : {text:t('nextAddr'), line:''}, F:f, D:dd, X:dd, M:0, W:dd, stalls:[], exStalls:[], flushed:true});
+          f = dd;
+        }
+        nextF = resolvedAt; stats.control += LOST;
+      } else nextF = D;
+      pc = nextPc; continue;
+    }
+    nextF = D; pc = nextPc;
+  }
+
+  const real = rows.filter(r => !r.flushed);
+  const cycles = real.length ? Math.max(...real.map(r => r.W)) : 0;
+  return {rows, stats, cycles, count: real.length, cpi: real.length ? cycles / real.length : 0, xr, fr, dv, warning};
+}
+
+/* cells of one diagram row: Map cycle -> {t, k, why}
+   With cfg.stallFirst, stalls are drawn before the stage the instruction is waiting for
+   (the stage appears in the cycle it actually advances, as in the 7th edition);
+   without it, stage first and then stalls, as in some earlier Hennessy-Patterson editions. */
+function rowCells(r, cfg){
+  const c = new Map();
+  const first = cfg.stallFirst !== false;
+  // stage `lab` occupied from a to b-1, with stalls `cause(cycle)` while it waits
+  const span = (a, b, lab, cause) => {
+    if (first) { for (let k = a; k < b - 1; k++) c.set(k, cause(k + 1)); c.set(b - 1, lab); }
+    else { c.set(a, lab); for (let k = a + 1; k < b; k++) c.set(k, cause(k)); }
+  };
+  const wait = why => () => ({t:'stall', k:'wait', why});
+  if (r.flushed) {
+    span(r.F, r.D, {t:'IF', k:'IF'}, wait(t('cell.waitID')));
+    c.set(r.D, {t:'✕', k:'flush', why:t('cell.flushed')});
+    return c;
+  }
+  if (r.pre) {   // freeze: cycles with no fetch until the branch is resolved
+    const lost = r.pre.lost || 1;
+    for (let k = r.pre.from; k < r.pre.to - lost; k++) c.set(k, {t:'stall', k:'wait', why:t('cell.waitID')});
+    for (let k = r.pre.to - lost; k < r.pre.to; k++) c.set(k, {t:'stall', k:'control', why:t('cell.ctrlFreeze', {b:r.pre.b})});
+  }
+  const causeIn = (list, where) => k => {
+    const s = list.find(q => k >= q.from && k < q.to);
+    return s ? {t:'stall', k:s.type, why:`${typeName(s.type)}${where}: ${s.why}`} : {t:'stall', k:'wait', why:t('cell.wait')};
+  };
+  span(r.F, r.D, {t:'IF', k:'IF'}, wait(t('cell.waitIF')));
+  span(r.D, r.X, {t:'ID', k:'ID'}, causeIn(r.stalls, ''));
+  const u = r.ins.unit;
+  if (u === 'int') span(r.X, r.M, {t:'EX', k:'EX'}, causeIn(r.exStalls, t('cell.inEX')));
+  else {
+    const lat = r.M - r.X;
+    for (let i = 0; i < lat; i++) c.set(r.X + i, {t: UNIT_PREFIX[u] + (i+1), k: UNIT_PREFIX[u]});
+  }
+  c.set(r.M, {t:'MEM', k:'MEM'});
+  c.set(r.W, {t:'WB', k:'WB'});
+  return c;
+}
+/* where an instruction physically is in cycle c (independent of how it is drawn) */
+function locate(r, c){
+  if (c < r.F) return null;
+  const cover = (list) => list.find(s => c >= s.from && c < s.to);
+  if (c < r.D) return {st:'IF', wait: c > r.F, type:'wait', why:t('why.idBusy')};
+  if (r.flushed) return null;
+  if (c < r.X) { const s = cover(r.stalls); return {st:'ID', wait: !!s, type: s && s.type, why: s && s.why}; }
+  if (c < r.M) {
+    if (r.ins.unit === 'int') { const s = cover(r.exStalls); return {st:'EX', wait: !!s, type: s && s.type, why: s && s.why}; }
+    return {st: r.ins.unit, idx: c - r.X};
+  }
+  if (c === r.M) return {st:'MEM'};
+  if (c === r.W) return {st:'WB'};
+  return null;
+}
+/* registers and memory at the end of cycle c */
+function stateAt(sim, prog, c){
+  const x = new Array(32).fill(0n), f = new Float64Array(32), dv = new DataView(prog.memInit.slice(0));
+  const changed = new Set();
+  for (const r of sim.rows) {
+    if (r.flushed) continue;
+    if (r.wkey && r.W <= c) { const n = +r.wkey.slice(1); if (r.wkey[0]==='f') f[n] = r.wval; else x[n] = r.wval; if (r.W === c) changed.add(r.wkey); }
+    if (r.st && r.M <= c) {
+      const {o, size, f:isF, v} = r.st;
+      if (isF) { if (size===8) dv.setFloat64(o, v, true); else dv.setFloat32(o, v, true); }
+      else { if (size===8) dv.setBigInt64(o, BigInt.asIntN(64, v), true); else dv.setInt32(o, Number(BigInt.asIntN(32, v)), true); }
+      if (r.M === c) changed.add('m' + (DATA_BASE + o));
+    }
+  }
+  return {x, f, dv, changed};
+}
+const typeName = k => t('type.' + k);
+
+/* ================= User interface ================= */
+const EX_HEAD = {
+es: `.data
+x:      .double 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0
+s:      .double 0.5
+
+.text
+        la      x1, x           # x1 -> x[0]
+        addi    x1, x1, 56      # x1 -> x[7] (se recorre hacia atrás)
+        addi    x2, x1, -64     # x2 -> fin del recorrido
+        la      x3, s
+        fld     f2, 0(x3)       # f2 = s
+`,
+en: `.data
+x:      .double 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0
+s:      .double 0.5
+
+.text
+        la      x1, x           # x1 -> x[0]
+        addi    x1, x1, 56      # x1 -> x[7] (walk backwards)
+        addi    x2, x1, -64     # x2 -> end of the walk
+        la      x3, s
+        fld     f2, 0(x3)       # f2 = s
+`};
+const EXAMPLES = [
+  {id:'raw', model:'appc',
+   name:{es:'Riesgos RAW en coma flotante', en:'FP RAW hazards'},
+   note:{es:'Secuencia clásica del apéndice C: cada instrucción depende de la anterior y las latencias largas obligan a parar.',
+         en:'Classic Appendix C sequence: each instruction depends on the previous one and the long latencies force stalls.'},
+   code:{es:
+`# Dependencias encadenadas con latencias FP largas
+.data
+a:      .double 3.0
+b:      .double 2.0
+c:      .double 1.0
+
+.text
+        la      x2, a
+        fld     f6, 8(x2)       # f6 = b
+        fld     f8, 16(x2)      # f8 = c
+        fld     f4, 0(x2)
+        fmul.d  f0, f4, f6
+        fadd.d  f2, f0, f8
+        fsd     f2, 0(x2)       # a = a*b + c
+`, en:
+`# Chained dependences with long FP latencies
+.data
+a:      .double 3.0
+b:      .double 2.0
+c:      .double 1.0
+
+.text
+        la      x2, a
+        fld     f6, 8(x2)       # f6 = b
+        fld     f8, 16(x2)      # f8 = c
+        fld     f4, 0(x2)
+        fmul.d  f0, f4, f6
+        fadd.d  f2, f0, f8
+        fsd     f2, 0(x2)       # a = a*b + c
+`}},
+  {id:'struct', model:'appc', units:{div:false},
+   name:{es:'Riesgos estructurales y WAW', en:'Structural and WAW hazards'},
+   note:{es:'Varias instrucciones intentan llegar a MEM/WB en el mismo ciclo, y dos divisiones compiten por un divisor no segmentado.',
+         en:'Several instructions try to reach MEM/WB in the same cycle, and two divisions compete for a non-pipelined divider.'},
+   code:{es:
+`# Conflictos en MEM/WB, WAW y divisor no segmentado
+.data
+v:      .double 6.0, 3.0
+
+.text
+        la      x2, v
+        fld     f4, 0(x2)
+        fld     f6, 8(x2)
+        addi    x5, x0, 1
+        fmul.d  f0, f4, f6      # termina tarde (7 ciclos)
+        addi    x6, x0, 2
+        addi    x7, x0, 3
+        fadd.d  f2, f4, f6      # querría llegar a MEM con fmul.d
+        fld     f2, 0(x2)       # WAW: escribiría f2 antes que fadd.d
+        addi    x8, x0, 4
+        addi    x9, x0, 5
+        fdiv.d  f10, f4, f6
+        fdiv.d  f12, f6, f4     # espera a que quede libre el divisor
+`, en:
+`# MEM/WB conflicts, WAW and a non-pipelined divider
+.data
+v:      .double 6.0, 3.0
+
+.text
+        la      x2, v
+        fld     f4, 0(x2)
+        fld     f6, 8(x2)
+        addi    x5, x0, 1
+        fmul.d  f0, f4, f6      # finishes late (7 cycles)
+        addi    x6, x0, 2
+        addi    x7, x0, 3
+        fadd.d  f2, f4, f6      # would reach MEM together with fmul.d
+        fld     f2, 0(x2)       # WAW: would write f2 before fadd.d
+        addi    x8, x0, 4
+        addi    x9, x0, 5
+        fdiv.d  f10, f4, f6
+        fdiv.d  f12, f6, f4     # waits until the divider is free
+`}},
+  {id:'loop',
+   name:{es:'Bucle original: x[i] = x[i] + s', en:'Original loop: x[i] = x[i] + s'},
+   note:{es:'El bucle del capítulo 3 sin ninguna optimización. Fija este resultado como referencia para comparar.',
+         en:'The Chapter 3 loop with no optimisation. Set this result as the baseline to compare against.'},
+   code:{es:
+`# x[i] = x[i] + s  (bucle original)
+${EX_HEAD.es}
+bucle:  fld     f0, 0(x1)
+        fadd.d  f4, f0, f2
+        fsd     f4, 0(x1)
+        addi    x1, x1, -8
+        bne     x1, x2, bucle
+`, en:
+`# x[i] = x[i] + s  (original loop)
+${EX_HEAD.en}
+loop:   fld     f0, 0(x1)
+        fadd.d  f4, f0, f2
+        fsd     f4, 0(x1)
+        addi    x1, x1, -8
+        bne     x1, x2, loop
+`}},
+  {id:'sched',
+   name:{es:'Bucle planificado', en:'Scheduled loop'},
+   note:{es:'Mismo bucle reordenado: addi sube para separar fld de fadd.d y el desplazamiento de fsd se corrige.',
+         en:'The same loop reordered: addi moves up to separate fld from fadd.d, and the fsd offset is adjusted.'},
+   code:{es:
+`# x[i] = x[i] + s  (planificado)
+${EX_HEAD.es}
+bucle:  fld     f0, 0(x1)
+        addi    x1, x1, -8
+        fadd.d  f4, f0, f2
+        fsd     f4, 8(x1)       # 8: x1 ya se ha decrementado
+        bne     x1, x2, bucle
+`, en:
+`# x[i] = x[i] + s  (scheduled)
+${EX_HEAD.en}
+loop:   fld     f0, 0(x1)
+        addi    x1, x1, -8
+        fadd.d  f4, f0, f2
+        fsd     f4, 8(x1)       # 8: x1 has already been decremented
+        bne     x1, x2, loop
+`}},
+  {id:'unroll',
+   name:{es:'Desenrollado ×4 sin planificar', en:'Unrolled ×4, not scheduled'},
+   note:{es:'Cuatro copias del cuerpo con registros distintos. Hay menos saltos, pero las paradas siguen ahí.',
+         en:'Four copies of the body with different registers. There are fewer branches, but the stalls are still there.'},
+   code:{es:
+`# x[i] = x[i] + s  (desenrollado x4, sin planificar)
+${EX_HEAD.es}
+bucle:  fld     f0, 0(x1)
+        fadd.d  f4, f0, f2
+        fsd     f4, 0(x1)
+        fld     f6, -8(x1)
+        fadd.d  f8, f6, f2
+        fsd     f8, -8(x1)
+        fld     f10, -16(x1)
+        fadd.d  f12, f10, f2
+        fsd     f12, -16(x1)
+        fld     f14, -24(x1)
+        fadd.d  f16, f14, f2
+        fsd     f16, -24(x1)
+        addi    x1, x1, -32
+        bne     x1, x2, bucle
+`, en:
+`# x[i] = x[i] + s  (unrolled x4, not scheduled)
+${EX_HEAD.en}
+loop:   fld     f0, 0(x1)
+        fadd.d  f4, f0, f2
+        fsd     f4, 0(x1)
+        fld     f6, -8(x1)
+        fadd.d  f8, f6, f2
+        fsd     f8, -8(x1)
+        fld     f10, -16(x1)
+        fadd.d  f12, f10, f2
+        fsd     f12, -16(x1)
+        fld     f14, -24(x1)
+        fadd.d  f16, f14, f2
+        fsd     f16, -24(x1)
+        addi    x1, x1, -32
+        bne     x1, x2, loop
+`}},
+  {id:'unrollsched',
+   name:{es:'Desenrollado ×4 y planificado', en:'Unrolled ×4 and scheduled'},
+   note:{es:'Cargas agrupadas, después sumas y después almacenamientos: las latencias quedan cubiertas.',
+         en:'Loads grouped first, then additions, then stores: the latencies are covered.'},
+   code:{es:
+`# x[i] = x[i] + s  (desenrollado x4 y planificado)
+${EX_HEAD.es}
+bucle:  fld     f0, 0(x1)
+        fld     f6, -8(x1)
+        fld     f10, -16(x1)
+        fld     f14, -24(x1)
+        fadd.d  f4, f0, f2
+        fadd.d  f8, f6, f2
+        fadd.d  f12, f10, f2
+        fadd.d  f16, f14, f2
+        fsd     f4, 0(x1)
+        fsd     f8, -8(x1)
+        addi    x1, x1, -32
+        fsd     f12, 16(x1)     # -16 + 32
+        fsd     f16, 8(x1)      # -24 + 32
+        bne     x1, x2, bucle
+`, en:
+`# x[i] = x[i] + s  (unrolled x4 and scheduled)
+${EX_HEAD.en}
+loop:   fld     f0, 0(x1)
+        fld     f6, -8(x1)
+        fld     f10, -16(x1)
+        fld     f14, -24(x1)
+        fadd.d  f4, f0, f2
+        fadd.d  f8, f6, f2
+        fadd.d  f12, f10, f2
+        fadd.d  f16, f14, f2
+        fsd     f4, 0(x1)
+        fsd     f8, -8(x1)
+        addi    x1, x1, -32
+        fsd     f12, 16(x1)     # -16 + 32
+        fsd     f16, 8(x1)      # -24 + 32
+        bne     x1, x2, loop
+`}},
+  {id:'swp',
+   name:{es:'Segmentación software', en:'Software pipelining'},
+   note:{es:'Cada iteración almacena x[i], suma x[i-1] y carga x[i-2]. El prólogo y el epílogo completan las iteraciones de los extremos.',
+         en:'Each iteration stores x[i], adds x[i-1] and loads x[i-2]. The prologue and epilogue complete the iterations at both ends.'},
+   code:{es:
+`# x[i] = x[i] + s  (segmentación software)
+.data
+x:      .double 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0
+s:      .double 0.5
+
+.text
+        la      x1, x
+        addi    x1, x1, 56      # x1 -> x[7]
+        addi    x2, x1, -48     # x2 -> x[1]: fin del bucle
+        la      x3, s
+        fld     f2, 0(x3)
+        # prólogo
+        fld     f0, 0(x1)       # carga x[7]
+        fadd.d  f4, f0, f2      # suma  x[7]
+        fld     f0, -8(x1)      # carga x[6]
+bucle:  fsd     f4, 0(x1)       # almacena x[i]
+        fadd.d  f4, f0, f2      # suma     x[i-1]
+        fld     f0, -16(x1)     # carga    x[i-2]
+        addi    x1, x1, -8
+        bne     x1, x2, bucle
+        # epílogo
+        fsd     f4, 0(x1)       # almacena x[1]
+        fadd.d  f4, f0, f2      # suma     x[0]
+        fsd     f4, -8(x1)      # almacena x[0]
+`, en:
+`# x[i] = x[i] + s  (software pipelining)
+.data
+x:      .double 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0
+s:      .double 0.5
+
+.text
+        la      x1, x
+        addi    x1, x1, 56      # x1 -> x[7]
+        addi    x2, x1, -48     # x2 -> x[1]: end of the loop
+        la      x3, s
+        fld     f2, 0(x3)
+        # prologue
+        fld     f0, 0(x1)       # load x[7]
+        fadd.d  f4, f0, f2      # add  x[7]
+        fld     f0, -8(x1)      # load x[6]
+loop:   fsd     f4, 0(x1)       # store x[i]
+        fadd.d  f4, f0, f2      # add   x[i-1]
+        fld     f0, -16(x1)     # load  x[i-2]
+        addi    x1, x1, -8
+        bne     x1, x2, loop
+        # epilogue
+        fsd     f4, 0(x1)       # store x[1]
+        fadd.d  f4, f0, f2      # add   x[0]
+        fsd     f4, -8(x1)      # store x[0]
+`}},
+  {id:'delayed', branch:'delayed',
+   name:{es:'Salto retardado (didáctico)', en:'Delayed branch (teaching mode)'},
+   note:{es:'Este ejemplo activa el salto retardado, que RISC-V no tiene: es un modo didáctico como el de MIPS. fsd ocupa el hueco y se ejecuta siempre, se tome o no el salto.',
+         en:'This example turns on the delayed branch, which RISC-V does not have: it is a teaching mode like MIPS. fsd fills the slot and always executes, whether the branch is taken or not.'},
+   code:{es:
+`# x[i] = x[i] + s  con salto retardado
+${EX_HEAD.es}
+bucle:  fld     f0, 0(x1)
+        addi    x1, x1, -8
+        fadd.d  f4, f0, f2
+        bne     x1, x2, bucle
+        fsd     f4, 8(x1)       # hueco de retardo
+`, en:
+`# x[i] = x[i] + s  with a delayed branch
+${EX_HEAD.en}
+loop:   fld     f0, 0(x1)
+        addi    x1, x1, -8
+        fadd.d  f4, f0, f2
+        bne     x1, x2, loop
+        fsd     f4, 8(x1)       # delay slot
+`}},
+  {id:'divpip', model:'appc',
+   name:{es:'Divisiones independientes', en:'Independent divisions'},
+   note:{es:'Tres divisiones sin dependencias. Marca y desmarca «Segmentada» en el divisor para ver la diferencia.',
+         en:'Three divisions with no dependences. Tick and untick “Pipelined” for the divider to see the difference.'},
+   code:{es:
+`# Divisiones independientes: divisor segmentado o no
+.data
+v:      .double 8.0, 4.0, 2.0
+
+.text
+        la      x2, v
+        fld     f2, 0(x2)
+        fld     f4, 8(x2)
+        fld     f6, 16(x2)
+        fdiv.d  f10, f2, f4
+        fdiv.d  f12, f2, f6
+        fdiv.d  f14, f4, f6
+        fsd     f14, 16(x2)
+`, en:
+`# Independent divisions: pipelined divider or not
+.data
+v:      .double 8.0, 4.0, 2.0
+
+.text
+        la      x2, v
+        fld     f2, 0(x2)
+        fld     f4, 8(x2)
+        fld     f6, 16(x2)
+        fdiv.d  f10, f2, f4
+        fdiv.d  f12, f2, f6
+        fdiv.d  f14, f4, f6
+        fsd     f14, 16(x2)
+`}},
+];
+
+const DEFAULT_CFG = {model:'ch3', stallFirst:true, forwarding:true, branch:'pnt', resolve:'ex', lat:{add:4, mul:7, div:25}, pipelined:{add:true, mul:true, div:false}};
+const PAGE = 40;
+
+function initUI(){
+  const $ = id => document.getElementById(id);
+  const code = $('code'), gutter = $('gutter');
+  let cfg = structuredClone(DEFAULT_CFG);
+  let page = 0, last = null, lastErrLine = null, reference = null;
+  let stepMode = false, cur = 1, playTimer = null;
+  const store = {
+    get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } },
+    set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+  };
+
+  // examples
+  const sel = $('example');
+  let noteKey = null;      // id of the example whose note is shown, or 'restored'
+  function fillExamples(){
+    const v = sel.value;
+    sel.innerHTML = EXAMPLES.map(e => `<option value="${e.id}">${e.name[LANG]}</option>`).join('');
+    if (v) sel.value = v;
+  }
+  function showNote(){
+    const e = EXAMPLES.find(x => x.id === noteKey);
+    $('example-note').textContent = noteKey === 'restored' ? t('restored') : e ? e.note[LANG] : '';
+  }
+  function loadExample(id){
+    const e = EXAMPLES.find(x => x.id === id) || EXAMPLES[0];
+    sel.value = e.id;
+    code.value = e.code[LANG];
+    cfg.branch = e.branch || 'pnt';
+    cfg.model = e.model || 'ch3';
+    if (e.units) Object.assign(cfg.pipelined, e.units);   // the example needs this unit configured this way
+    noteKey = e.id; showNote();
+    syncCfgUI(); updateGutter(); run(true);
+  }
+  $('load-example').addEventListener('click', () => loadExample(sel.value));
+
+  // configuration
+  function syncCfgUI(){
+    $('cfg-model').value = cfg.model;
+    $('cfg-stallfirst').checked = cfg.stallFirst !== false;
+    $('cfg-fwd').checked = cfg.forwarding;
+    $('cfg-branch').value = cfg.branch;
+    $('cfg-resolve').value = cfg.resolve;
+    for (const u of ['add','mul','div']) { $('lat-'+u).value = cfg.lat[u]; $('pip-'+u).checked = cfg.pipelined[u]; }
+  }
+  function readCfgUI(){
+    cfg.model = $('cfg-model').value;
+    cfg.stallFirst = $('cfg-stallfirst').checked;
+    cfg.forwarding = $('cfg-fwd').checked;
+    cfg.branch = $('cfg-branch').value;
+    cfg.resolve = $('cfg-resolve').value;
+    for (const u of ['add','mul','div']) {
+      const v = parseInt($('lat-'+u).value, 10);
+      cfg.lat[u] = Number.isFinite(v) ? Math.min(60, Math.max(1, v)) : DEFAULT_CFG.lat[u];
+      if ($('lat-'+u).value !== String(cfg.lat[u]) && document.activeElement !== $('lat-'+u)) $('lat-'+u).value = cfg.lat[u];
+      cfg.pipelined[u] = $('pip-'+u).checked;
+    }
+  }
+  ['cfg-model','cfg-stallfirst','cfg-fwd','cfg-branch','cfg-resolve','lat-add','lat-mul','lat-div','pip-add','pip-mul','pip-div'].forEach(id =>
+    $(id).addEventListener('change', () => { readCfgUI(); for (const u of ['add','mul','div']) $('lat-'+u).value = cfg.lat[u]; run(false); }));
+  $('reset-cfg').addEventListener('click', () => { const b = cfg.branch, md = cfg.model, sf = cfg.stallFirst, rs = cfg.resolve; cfg = structuredClone(DEFAULT_CFG); cfg.branch = b; cfg.model = md; cfg.stallFirst = sf; cfg.resolve = rs; syncCfgUI(); run(false); });
+
+  // editor
+  function updateGutter(){
+    const nLines = code.value.split('\n').length;
+    let h = '';
+    for (let i = 1; i <= nLines; i++) h += `<div${i===lastErrLine?' class="err"':''}>${i}</div>`;
+    gutter.innerHTML = h;
+    gutter.scrollTop = code.scrollTop;
+  }
+  code.addEventListener('scroll', () => { gutter.scrollTop = code.scrollTop; });
+  let tmr = null;
+  code.addEventListener('input', () => { updateGutter(); clearTimeout(tmr); tmr = setTimeout(() => run(false), 500); });
+  code.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); run(false); }
+    if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); const s = code.selectionStart; code.setRangeText('        ', s, code.selectionEnd, 'end'); updateGutter(); }
+  });
+  $('run').addEventListener('click', () => run(false));
+  $('set-ref').addEventListener('click', () => {
+    if (!last) return;
+    reference = {cycles:last.cycles, count:last.count, name: sel.options[sel.selectedIndex]?.text || t('ref.yours')};
+    renderRef();
+  });
+
+  // tabs
+  const tabs = ['stalls','regs','mem'];
+  tabs.forEach(tb => $('tab-'+tb).addEventListener('click', () => tabs.forEach(o => {
+    $('tab-'+o).setAttribute('aria-selected', String(o===tb)); $('det-'+o).hidden = o!==tb;
+  })));
+
+  // legend
+  function renderLegend(){
+    const leg = [['IF','IF'],['ID','ID'],['EX','EX'],['A','A1'],['M','M1'],['D','D1'],['MEM','MEM'],['WB','WB'],['raw','stall'],['struct','stall'],['waw','stall'],['wait','stall'],['control','stall'],['flush','✕']];
+    $('legend').innerHTML = leg.map(([k,tx]) => `<span class="chip"><span class="tag k-${k}">${tx}</span>${t('leg.'+k)}</span>`).join('');
+  }
+
+  function run(resetPage){
+    readCfgUI();
+    store.set('pfp-code', code.value); store.set('pfp-cfg', cfg);
+    const errBox = $('error');
+    try {
+      const prog = assemble(code.value);
+      last = simulate(prog, cfg);
+      last.prog = prog;
+      lastErrLine = null; errBox.hidden = true;
+      if (resetPage) { page = 0; cur = 1; }
+      cur = Math.min(Math.max(1, cur), last.cycles || 1);
+      const maxPage = Math.max(0, Math.ceil(last.rows.length / PAGE) - 1);
+      if (page > maxPage) page = maxPage;
+      render();
+    } catch (e) {
+      if (!(e instanceof AsmError)) { console.error(e); }
+      lastErrLine = e.line || null;
+      errBox.hidden = false;
+      errBox.textContent = (e.line ? t('err.line',{l:e.line}) : '') + e.message;
+    }
+    updateGutter();
+  }
+
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const fmtNum = v => typeof v === 'bigint' ? String(v) : Number.isInteger(v) ? String(v) : String(Number(v.toPrecision(10)));
+
+  function render(){
+    const r = last;
+    $('model-note').textContent = t(cfg.model === 'ch3' ? 'model.note.ch3' : 'model.note.appc');
+    $('resolve-note').textContent = t(cfg.resolve === 'id' ? 'resolve.note.id' : 'resolve.note.ex');
+    $('branch-note').hidden = cfg.branch !== 'delayed';
+    $('branch-note').textContent = t('branch.note.delayed');
+    const totalStalls = r.stats.raw + r.stats.struct + r.stats.waw + r.stats.control;
+    $('cfg-summary').textContent = `${t(cfg.model==='ch3'?'sum.ch3':'sum.appc')} · ${t(cfg.forwarding?'sum.fwdOn':'sum.fwdOff')} · ${t('sum.'+cfg.branch)} · ${t(cfg.resolve==='id'?'sum.resID':'sum.resEX')}`;
+    $('stats').innerHTML = [
+      [t('stat.cycles'), r.cycles],
+      [t('stat.instr'), r.count],
+      [t('stat.cpi'), r.cpi.toFixed(2)],
+      [t('stat.stalls'), totalStalls],
+    ].map(([l,v]) => `<div class="stat"><div class="label">${l}</div><div class="v">${v}</div></div>`).join('');
+    const bd = [['raw',t('bd.raw'),'k-raw'],['struct',t('bd.struct'),'k-struct'],['waw',t('bd.waw'),'k-waw'],['control',t('bd.control'),'k-flush']];
+    $('breakdown').innerHTML = `<span class="label">${t('bd.title')}</span>` + bd.map(([k,l,c]) =>
+      `<span class="chip"><span class="sw ${c}" style="${k==='control'?'background:var(--flush)':''}"></span>${l}: <strong>${r.stats[k]}</strong></span>`).join('');
+    $('warn').innerHTML = r.warning ? `<div class="warn">${esc(r.warning)}</div>` : '';
+    renderRef();
+    if (stepMode) renderPipe();
+    renderDiagram();
+    renderDetails();
+  }
+
+  function renderRef(){
+    const box = $('ref');
+    if (!reference || !last) { box.hidden = true; return; }
+    box.hidden = false;
+    const sp = reference.cycles / last.cycles;
+    const cls = sp >= 1 ? 'speed-up' : 'speed-down';
+    box.innerHTML = `<span class="label">${t('ref.label')}</span><span>${esc(reference.name)}: <strong>${reference.cycles}</strong> ${t('w.cycles')}</span><span>${t('ref.now')}: <strong>${last.cycles}</strong> ${t('w.cycles')}</span><span class="${cls}">${t('ref.speedup')} ${sp.toFixed(2)}×</span><button class="btn small" type="button" id="clear-ref">${t('ref.clear')}</button>`;
+    $('clear-ref').addEventListener('click', () => { reference = null; renderRef(); });
+  }
+
+  function renderDiagram(){
+    const rows = last.rows;
+    let from = page*PAGE, to = page*PAGE + PAGE;
+    if (stepMode) {
+      let lastIdx = -1;
+      rows.forEach((r, i) => { if ((r.pre ? r.pre.to - (r.pre.lost || 1) : r.F) <= cur) lastIdx = i; });
+      page = Math.max(0, Math.floor(lastIdx / PAGE));
+      from = page*PAGE; to = Math.min(lastIdx + 1, page*PAGE + PAGE);
+    }
+    const slice = rows.slice(from, to);
+    if (!slice.length) { $('diag').innerHTML = `<p class="empty">${t('diag.none')}</p>`; $('pager').innerHTML=''; return; }
+    const cellMaps = slice.map(r => {
+      const m = rowCells(r, cfg);
+      if (stepMode) for (const k of [...m.keys()]) if (k > cur) m.delete(k);
+      return m;
+    });
+    let c0 = Infinity, c1 = 0;
+    for (const m of cellMaps) for (const k of m.keys()) { if (k < c0) c0 = k; if (k > c1) c1 = k; }
+    if (stepMode) { c1 = Math.max(c1, cur); if (!Number.isFinite(c0)) c0 = cur; }
+    let h = `<table class="diag"><thead><tr><th class="ins-h">${t('diag.instr')}</th>`;
+    for (let c = c0; c <= c1; c++) h += `<th scope="col"${stepMode && c===cur ? ' class="now"' : ''}>${c}</th>`;
+    h += '</tr></thead><tbody>';
+    slice.forEach((r, i) => {
+      const m = cellMaps[i];
+      h += `<tr class="${r.flushed && (!stepMode || cur >= r.D) ? 'flushed' : ''}"><td class="ins" title="${esc(r.ins.text)}"><span class="ln">${r.ins.line}</span>${esc(r.ins.text)}${r.slot?`<span class="slot">${t('diag.slot')}</span>`:''}</td>`;
+      for (let c = c0; c <= c1; c++) {
+        const x = m.get(c), now = stepMode && c === cur ? ' now' : '';
+        h += x ? `<td class="c${now}"><span class="k-${x.k}"${x.why?` title="${esc(x.why)}"`:''}>${x.t}</span></td>` : `<td class="c${now}"></td>`;
+      }
+      h += '</tr>';
+    });
+    h += '</tbody></table>';
+    const wrap = $('diag');
+    wrap.innerHTML = h;
+    if (stepMode) {
+      const th = wrap.querySelector('th.now');
+      if (th) {
+        const left = th.offsetLeft - wrap.clientWidth + 120;
+        if (wrap.scrollLeft < left || wrap.scrollLeft > th.offsetLeft - 240) wrap.scrollLeft = Math.max(0, left);
+      }
+      wrap.scrollTop = wrap.scrollHeight;
+    }
+    const pages = Math.ceil(rows.length / PAGE);
+    if (stepMode) $('pager').innerHTML = `<span>${t('pager.step',{c:cur, n:last.cycles})}</span>`;
+    else if (pages > 1) {
+      $('pager').innerHTML = `<button class="btn small" type="button" id="pg-prev" ${page===0?'disabled':''}>${t('pager.prev')}</button><span>${t('pager.range',{a:page*PAGE+1, b:Math.min(rows.length,(page+1)*PAGE), n:rows.length})}</span><button class="btn small" type="button" id="pg-next" ${page>=pages-1?'disabled':''}>${t('pager.next')}</button>`;
+      $('pg-prev').addEventListener('click', () => { page--; renderDiagram(); });
+      $('pg-next').addEventListener('click', () => { page++; renderDiagram(); });
+    } else $('pager').innerHTML = `<span>${t('pager.rows',{n:rows.length})}</span>`;
+  }
+
+  /* ---------- cycle-by-cycle mode ---------- */
+  function renderPipe(){
+    const c = cur, rows = last.rows;
+    $('st-now').textContent = t('pipe.now',{c, n:last.cycles});
+    $('st-range').max = String(last.cycles); $('st-range').value = String(c);
+    $('st-prev').disabled = c <= 1; $('st-first').disabled = c <= 1;
+    $('st-next').disabled = c >= last.cycles; $('st-last').disabled = c >= last.cycles;
+    // who is in each stage
+    const occ = {};
+    const put = (k, r, loc) => { (occ[k] = occ[k] || []).push({r, loc}); };
+    for (const r of rows) {
+      if (r.F > c) break;
+      const loc = locate(r, c); if (!loc) continue;
+      if (loc.st === 'add' || loc.st === 'mul' || loc.st === 'div') put(loc.st + loc.idx, r, loc);
+      else put(loc.st, r, loc);
+    }
+    const short = s0 => { const m = s0.match(/^(\S+)\s+([^,]+)/); return m ? m[1] + ' ' + m[2] : s0; };
+    const box = (k, name, cls, brief) => {
+      const list = occ[k] || [];
+      if (!list.length) return `<div class="stage idle"><span class="nm">${name}</span><span class="in">—</span></div>`;
+      const waiting = list.find(o => o.loc.wait);
+      const kcls = waiting ? 'k-' + (waiting.loc.type || 'wait') : cls;
+      const title = list.map(o => o.r.ins.text + (o.loc.wait ? t('stage.stallTitle',{why:o.loc.why}) : '')).join('\n');
+      return `<div class="stage ${kcls}" title="${esc(title)}"><span class="nm">${name}${waiting ? t('stage.stalled') : ''}</span>${list.map(o => `<span class="in">${esc(brief ? short(o.r.ins.text) : o.r.ins.text)}</span>`).join('')}</div>`;
+    };
+    const lane = (label, boxes) => `<div class="lane"><span class="lname">${label}</span>${boxes}</div>`;
+    // FP unit: pipelined -> one box per stage (compact cells beyond 8 stages);
+    // not pipelined -> a single box with a cycle counter.
+    const unitLane = (u, P, kc) => {
+      const n = Math.max(1, cfg.lat[u] | 0);
+      const here = [];
+      for (let i = 0; i < n; i++) for (const o of (occ[u + i] || [])) here.push({i, o});
+      if (!cfg.pipelined[u]) {
+        const h = here[0];
+        if (!h) return `<div class="stage idle busy-np"><span class="nm">${P}1…${P}${n} · ${t('lane.notPip')}</span><span class="in">—</span></div>`;
+        return `<div class="stage ${kc} busy-np" title="${esc(h.o.r.ins.text)}"><span class="nm">${P}${h.i + 1} / ${n} · ${t('lane.notPip')}</span><span class="in">${esc(short(h.o.r.ins.text))}</span></div>`;
+      }
+      if (n <= 8) { let b = ''; for (let i = 0; i < n; i++) b += box(u + i, P + (i+1), kc, true); return b; }
+      let cells = '';
+      for (let i = 0; i < n; i++) {
+        const o = (occ[u + i] || [])[0];
+        cells += o ? `<span class="mini on ${kc}" title="${P}${i+1}: ${esc(o.r.ins.text)}">${i+1}</span>`
+                   : `<span class="mini" title="${P}${i+1}">${i+1}</span>`;
+      }
+      const cap = here.length ? here.map(h => `<b>${P}${h.i + 1}</b> ${esc(short(h.o.r.ins.text))}`).join(' · ') : t('lane.free');
+      return `<div class="minis-wrap"><div class="minis">${cells}</div><div class="minis-cap">${cap}</div></div>`;
+    };
+    let lanes = lane(t('lane.int'), box('EX', 'EX', 'k-EX', true));
+    lanes += lane(t('lane.add'), unitLane('add', 'A', 'k-A')) + lane(t('lane.mul'), unitLane('mul', 'M', 'k-M')) + lane(t('lane.div'), unitLane('div', 'D', 'k-D'));
+    $('pipe').innerHTML = box('IF','IF','k-IF',true) + box('ID','ID','k-ID',true) + `<div class="lanes">${lanes}</div>` + box('MEM','MEM','k-MEM',true) + box('WB','WB','k-WB',true);
+
+    // what happens in this cycle
+    const ev = [];
+    const fmtv = v => typeof v === 'bigint' ? String(v) : Number.isInteger(v) ? String(v) : String(Number(Number(v).toPrecision(10)));
+    for (const r of rows) {
+      if (r.pre && r.pre.to - (r.pre.lost || 1) === c) ev.push(['stall', 'k-control', t('ev.freeze',{b:`<code>${esc(r.pre.b)}</code>`})]);
+      if (r.F > c) break;
+      if (r.F === c) ev.push(['IF', 'k-IF', t('ev.fetch',{i:`<code>${esc(r.ins.text)}</code>`})]);
+      if (r.flushed) { if (r.D === c) ev.push(['✕', 'k-flush', t('ev.flush',{i:`<code>${esc(r.ins.text)}</code>`})]); continue; }
+      const loc = locate(r, c);
+      if (loc && loc.wait && loc.st !== 'IF') ev.push(['stall', 'k-' + loc.type, t('ev.wait',{i:`<code>${esc(r.ins.text)}</code>`, st:loc.st, why:esc(loc.why)})]);
+      const resC = cfg.resolve === 'id' ? r.X - 1 : r.X, resS = cfg.resolve === 'id' ? 'ID' : 'EX';
+      if ((r.ins.kind === 'branch') && resC === c) ev.push([resS, 'k-' + resS, t('ev.resolved',{i:`<code>${esc(r.ins.text)}</code>`, res:t(r.taken ? 'ev.taken' : 'ev.notTaken')})]);
+      if ((r.ins.kind === 'jump' || r.ins.kind === 'jalr') && resC === c) ev.push([resS, 'k-' + resS, t('ev.resolved',{i:`<code>${esc(r.ins.text)}</code>`, res:t('ev.taken')})]);
+      if (r.st && r.M === c) ev.push(['MEM', 'k-MEM', t('ev.writes',{i:`<code>${esc(r.ins.text)}</code>`, dst:`M[0x${(DATA_BASE + r.st.o).toString(16)}]`, v:fmtv(r.st.v)})]);
+      if (r.wkey && r.W === c) ev.push(['WB', 'k-WB', t('ev.writes',{i:`<code>${esc(r.ins.text)}</code>`, dst:r.wkey, v:(r.wkey[0]==='x' && r.wval >= DATA_BASE && r.wval < DATA_BASE+MEM_SIZE ? '0x'+r.wval.toString(16) : fmtv(r.wval))})]);
+    }
+    $('events').innerHTML = `<p class="label" style="margin:4px 0 2px">${t('ev.title',{c})}</p>` +
+      (ev.length ? ev.map(([tg, k, txt]) => `<div><span class="tag ${k}">${tg}</span><span>${txt}</span></div>`).join('') : `<span class="empty" style="padding:0">${t('ev.none')}</span>`);
+  }
+
+  function renderDetails(){
+    const items = [];
+    last.rows.forEach(r => {
+      if (r.flushed) return;
+      const all = [...r.stalls.map(s => ({...s, where:'ID'})), ...r.exStalls.map(s => ({...s, where:'EX'}))];
+      if (!all.length) return;
+      const g = new Map();
+      for (const s of all) { const k = s.type + '|' + s.why + '|' + s.where; g.set(k, (g.get(k)||{...s, n:0})); g.get(k).n += s.to - s.from; }
+      const reasons = [...g.values()].map(s => `<span class="why">${t('det.reason',{n:`${s.n} ${t(s.n>1?'w.cycles':'w.cycle')}`, type:typeName(s.type), where:s.where, why:esc(s.why)})}</span>`).join('');
+      items.push(`<li><span><code>${esc(r.ins.text)}</code> <span class="why">${t('det.at',{l:r.ins.line, c:r.D})}</span></span>${reasons}</li>`);
+    });
+    $('det-stalls').innerHTML = items.length ? `<ol>${items.join('')}</ol>` : `<p class="empty">${t('det.none')}</p>`;
+
+    const st = stepMode ? stateAt(last, last.prog, cur) : {x:last.xr, f:last.fr, dv:last.dv, changed:new Set()};
+    const xr = st.x, fr = st.f;
+    const when = stepMode ? t('regs.whenStep',{c:cur}) : t('regs.whenEnd');
+    let regs = `<p class="label" style="margin:0 0 6px">${t('regs.fp')}${when}</p><div class="state-grid">`;
+    for (let i = 0; i < 32; i++) regs += `<div class="${st.changed.has('f'+i)?'chg':fr[i]!==0?'nz':'z'}"><span>f${i}</span><span>${fmtNum(fr[i])}</span></div>`;
+    regs += `</div><p class="label" style="margin:14px 0 6px">${t('regs.int')}${when}</p><div class="state-grid">`;
+    let anyInt = false;
+    for (let i = 1; i < 32; i++) if (xr[i] !== 0n) { anyInt = true; regs += `<div class="${st.changed.has('x'+i)?'chg':'nz'}"><span>x${i}</span><span>${xr[i] >= DATA_BASE && xr[i] < DATA_BASE+MEM_SIZE ? '0x'+xr[i].toString(16) : xr[i]}</span></div>`; }
+    regs += anyInt ? '</div>' : `</div><p class="empty" style="padding:0">${t('regs.allZero')}</p>`;
+    $('det-regs').innerHTML = regs;
+
+    const di = last.prog.dataItems;
+    if (!di.length) { $('det-mem').innerHTML = `<p class="empty" style="padding:0">${t('mem.none')}</p>`; return; }
+    const init = new DataView(last.prog.memInit), fin = st.dv;
+    const rd = (v, it) => { const o = it.addr - DATA_BASE; return it.type==='double' ? v.getFloat64(o,true) : it.type==='float' ? v.getFloat32(o,true) : it.type==='dword' ? v.getBigInt64(o,true) : v.getInt32(o,true); };
+    let mt = `<table class="mem-table"><thead><tr><th>${t('mem.addr')}</th><th>${t('mem.label')}</th><th>${t('mem.type')}</th><th>${t('mem.init')}</th><th>${stepMode ? t('mem.cycle',{c:cur}) : t('mem.final')}</th></tr></thead><tbody>`;
+    for (const it of di) {
+      const a = rd(init, it), b = rd(fin, it);
+      mt += `<tr class="${st.changed.has('m'+it.addr)?'chg':''}"><td>0x${it.addr.toString(16)}</td><td>${esc(it.label)}</td><td>.${it.type}</td><td>${fmtNum(a)}</td><td class="${Object.is(a,b)?'':'chg'}">${fmtNum(b)}</td></tr>`;
+    }
+    $('det-mem').innerHTML = mt + '</tbody></table>';
+  }
+
+  // cycle-by-cycle controls
+  function setMode(step){
+    stepMode = step; stopPlay();
+    $('mode-full').setAttribute('aria-pressed', String(!step));
+    $('mode-step').setAttribute('aria-pressed', String(step));
+    $('pipe-panel').hidden = !step;
+    if (step) cur = 1;
+    if (last) render();
+  }
+  function goto(c){
+    if (!last) return;
+    cur = Math.min(last.cycles, Math.max(1, c));
+    renderPipe(); renderDiagram(); renderDetails();
+  }
+  function stopPlay(){ if (playTimer) { clearInterval(playTimer); playTimer = null; } $('st-play').textContent = t('st.play'); }
+  function togglePlay(){
+    if (playTimer) { stopPlay(); return; }
+    if (cur >= last.cycles) goto(1);
+    $('st-play').textContent = t('st.pause');
+    playTimer = setInterval(() => { if (cur >= last.cycles) { stopPlay(); return; } goto(cur + 1); }, +$('st-speed').value);
+  }
+  $('mode-full').addEventListener('click', () => setMode(false));
+  $('mode-step').addEventListener('click', () => setMode(true));
+  $('st-first').addEventListener('click', () => { stopPlay(); goto(1); });
+  $('st-prev').addEventListener('click', () => { stopPlay(); goto(cur - 1); });
+  $('st-next').addEventListener('click', () => { stopPlay(); goto(cur + 1); });
+  $('st-last').addEventListener('click', () => { stopPlay(); goto(last.cycles); });
+  $('st-play').addEventListener('click', togglePlay);
+  $('st-range').addEventListener('input', e => { stopPlay(); goto(+e.target.value); });
+  $('st-speed').addEventListener('change', () => { if (playTimer) { stopPlay(); togglePlay(); } });
+  document.addEventListener('keydown', e => {
+    if (!stepMode || !last) return;
+    const tag = (document.activeElement && document.activeElement.tagName) || '';
+    if (['TEXTAREA','INPUT','SELECT'].includes(tag) && document.activeElement.type !== 'range') return;
+    if (e.key === 'ArrowRight') { e.preventDefault(); stopPlay(); goto(cur + 1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); stopPlay(); goto(cur - 1); }
+  });
+
+  // language
+  function applyStatic(){
+    document.documentElement.lang = LANG;
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+    document.querySelectorAll('[data-i18n-aria]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
+    document.querySelectorAll('.lang button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.lang === LANG)));
+    $('st-play').textContent = t(playTimer ? 'st.pause' : 'st.play');
+    fillExamples(); renderLegend(); showNote();
+  }
+  function setLang(l){
+    if (!I18N[l] || l === LANG) return;
+    const old = LANG;
+    // if the editor holds an unmodified example, swap it for its version in the other language
+    const ex = EXAMPLES.find(e => e.code[old] === code.value);
+    LANG = l; store.set('pfp-lang', l);
+    if (ex) code.value = ex.code[l];
+    if (reference && ex && reference.name === ex.name[old]) reference.name = ex.name[l];
+    applyStatic(); updateGutter(); run(false);
+  }
+  document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang)));
+
+  // start-up
+  const savedLang = store.get('pfp-lang');
+  LANG = I18N[savedLang] ? savedLang : ((navigator.language || 'es').toLowerCase().startsWith('es') ? 'es' : 'en');
+  applyStatic();
+  const savedCode = store.get('pfp-code'), savedCfg = store.get('pfp-cfg');
+  if (savedCfg && savedCfg.lat) cfg = {...structuredClone(DEFAULT_CFG), ...savedCfg, lat:{...DEFAULT_CFG.lat, ...savedCfg.lat}, pipelined:{...DEFAULT_CFG.pipelined, ...savedCfg.pipelined}};
+  if (typeof savedCode === 'string' && savedCode.trim()) {
+    code.value = savedCode;
+    const ex = EXAMPLES.find(e => e.code.es === savedCode || e.code.en === savedCode);
+    if (ex) { code.value = ex.code[LANG]; sel.value = ex.id; noteKey = ex.id; }
+    else { sel.value = 'loop'; noteKey = 'restored'; }
+    showNote(); syncCfgUI(); updateGutter(); run(true);
+  } else {
+    loadExample('loop');
+  }
+}
+if (typeof document !== 'undefined') initUI();
+</script>
+
+</body>
+</html>
