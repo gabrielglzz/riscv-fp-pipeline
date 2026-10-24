@@ -53,7 +53,7 @@ Web simulator of an **in-order 5-stage RISC-V pipeline with multicycle floating-
 
 ```bash
 npm ci
-npm run test:engine     # engine: Node 20 or later, no browser needed
+npm run test:engine     # engine: Node 22 or later, no browser needed
 npx playwright install chromium
 npm run test:ui         # interface, in Chromium
 ```
