@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Web simulator of an in-order RISC-V pipeline with multicycle floating-point units (Hennessy and Patterson, Chapter 3 and Appendix C). Cycle diagram, cycle-by-cycle mode, English and Spanish.">
+<meta name="description" content="Web simulator of an in-order RISC-V pipeline with multicycle floating-point units (Hennessy and Patterson). Cycle diagram, cycle-by-cycle mode, English and Spanish.">
 <meta property="og:title" content="Pipeline FP RISC-V">
 <meta property="og:description" content="Teaching simulator for instruction scheduling: 5-stage RISC-V pipeline with multicycle FP units.">
 <meta property="og:type" content="website">
@@ -283,11 +283,7 @@ table.diag td.c.now{background:var(--accent-soft)}
       <div class="panel-h"><h2 id="h-cfg" data-i18n="cpu.h"></h2><button class="btn small" id="reset-cfg" type="button" data-i18n="reset"></button></div>
       <div class="panel-b cfg">
         <div class="cfg-row">
-          <label for="cfg-model" data-i18n="model.label"></label>
-          <select id="cfg-model">
-            <option value="ch3" data-i18n="model.ch3"></option>
-            <option value="appc" data-i18n="model.appc"></option>
-          </select>
+          <label class="check"><input type="checkbox" id="cfg-appc"> <span data-i18n="model.label"></span></label>
         </div>
         <p class="note" style="padding:0" id="model-note"></p>
         <div class="cfg-row">
@@ -396,23 +392,23 @@ table.diag td.c.now{background:var(--accent-soft)}
 const I18N = {
 es: {
   'lang.aria':'Idioma',
-  'hdr.sub':'Segmentación en orden de 5 etapas con unidades de coma flotante multiciclo, según el apéndice C de Hennessy y Patterson.',
+  'hdr.sub':'Segmentación en orden de 5 etapas con unidades de coma flotante multiciclo, según Hennessy y Patterson.',
   'prog.h':'Programa', 'prog.isa':'Ensamblador RISC-V (RV64IMFD)',
   'ex.label':'Ejemplo', 'ex.load':'Cargar', 'code.aria':'Código ensamblador',
   'run':'Ejecutar', 'setref':'Fijar como referencia', 'setref.title':'Guarda los ciclos de esta versión para comparar con la siguiente', 'hint':'Ctrl + Enter ejecuta',
   'cpu.h':'Procesador', 'reset':'Valores del libro',
-  'model.label':'Modelo de temporización', 'model.ch3':'Latencias del capítulo 3', 'model.appc':'Detallado del apéndice C',
-  'model.note.ch3':'Reproduce las latencias de la tabla del capítulo 3 (carga→FP 1, FP→FP 3, FP→almacenamiento 2). No hay conflictos en MEM/WB. El almacenamiento usa el dato en MEM; si no va a llegar a tiempo, la instrucción se detiene en ID y no ocupa la etapa EX.',
-  'model.note.appc':'Reproduce los diagramas del apéndice C: las operaciones FP también ocupan MEM y WB, así que hay conflictos de escritura. El almacenamiento usa el dato en MEM, pero avanza hasta EX y espera allí a que pueda adelantarse, bloqueando a las instrucciones enteras siguientes.',
+  'model.label':'Conflictos en MEM/WB (apéndice C)',
+  'model.note.ch3':'Sin marcar no hay conflictos en MEM/WB, y un almacenamiento cuyo dato no va a llegar a tiempo a MEM se detiene en ID sin ocupar la etapa EX.',
+  'model.note.appc':'Como en los diagramas del apéndice C: las operaciones FP también ocupan MEM y WB, así que hay conflictos de escritura. El almacenamiento usa el dato en MEM, pero avanza hasta EX y espera allí a que pueda adelantarse, bloqueando a las instrucciones enteras siguientes.',
   'fwd':'Adelantamiento de resultados (<i>forwarding</i>)',
   'stallfirst':'Dibujar las paradas antes de la etapa',
   'stallfirst.note':'Es la convención de la 7.ª edición de Hennessy-Patterson. Desmárcalo para usar la de algunas ediciones anteriores, que dibujan la etapa y después las paradas mientras la instrucción espera en ella.',
   'branch.label':'Tratamiento de saltos', 'branch.pnt':'Predecir no tomado', 'branch.freeze':'Congelar el pipeline', 'branch.delayed':'Salto retardado (didáctico, como en MIPS)',
-  'branch.note.delayed':'RISC-V no tiene salto retardado: este modo es didáctico y sigue la semántica de MIPS, con 1 hueco que se ejecuta siempre. Con los saltos resueltos en EX, el hueco solo cubre uno de los dos ciclos y el otro se pierde.',
+  'branch.note.delayed':'RISC-V no tiene salto retardado: este modo es didáctico y sigue la semántica de MIPS. Hay un hueco por cada ciclo que costaría el salto: 2 si se resuelve en EX y 1 si se resuelve en ID. Las instrucciones de los huecos se ejecutan siempre, se tome o no el salto.',
   'units.unit':'Unidad', 'units.lat':'Ciclos en EX', 'units.pip':'Segmentada',
   'u.int':'Entera (EX)', 'u.add':'Sumador FP', 'u.mul':'Multiplicador FP', 'u.div':'Divisor FP', 'yes':'sí',
   'lat.add':'Ciclos de ejecución del sumador FP', 'lat.mul':'Ciclos de ejecución del multiplicador FP', 'lat.div':'Ciclos de ejecución del divisor FP',
-  'cpu.note':'Ciclos que la operación pasa en su unidad. La latencia del libro es un ciclo menos: sumador 4 → latencia 3, multiplicador 7 → latencia 6, divisor 25 → latencia 24 (intervalo de iniciación 25 si no está segmentado). Las paradas por WAW y por unidades no segmentadas se detectan en ID.',
+  'cpu.note':'Los valores por defecto son los de Hennessy y Patterson. Son los ciclos que la operación pasa en su unidad; la latencia es un ciclo menos: sumador 4 → latencia 3, multiplicador 7 → latencia 6, divisor 25 → latencia 24 (intervalo de iniciación 25, no segmentado). Las paradas por WAW y por unidades no segmentadas se detectan en ID.',
   'res.h':'Resultados',
   'pipe.h':'Estado del pipeline', 'pipe.keys':'← → para cambiar de ciclo',
   'st.first':'Ir al primer ciclo', 'st.prev':'Ciclo anterior', 'st.next':'Ciclo siguiente', 'st.last':'Ir al último ciclo',
@@ -467,7 +463,7 @@ es: {
   'resolve.note.id':'El salto se decide en ID: si se toma solo se pierde 1 ciclo, pero necesita sus registros antes (1 parada tras una operación entera y 2 tras una carga).',
   'sum.resEX':'saltos en EX', 'sum.resID':'saltos en ID', 'leg.control':'Congelación (salto)', 'cell.wait':'Esperando', 'cell.inEX':' (en EX)',
   // results
-  'sum.ch3':'latencias del cap. 3', 'sum.appc':'modelo del apéndice C', 'sum.fwdOn':'con adelantamiento', 'sum.fwdOff':'sin adelantamiento',
+  'sum.appc':'conflictos MEM/WB', 'sum.fwdOn':'con adelantamiento', 'sum.fwdOff':'sin adelantamiento',
   'sum.pnt':'predecir no tomado', 'sum.freeze':'congelar', 'sum.delayed':'salto retardado (didáctico)',
   'stat.cycles':'Ciclos', 'stat.instr':'Instrucciones', 'stat.cpi':'CPI', 'stat.stalls':'Ciclos de parada',
   'bd.title':'Paradas por tipo', 'bd.raw':'RAW', 'bd.struct':'Estructurales', 'bd.waw':'WAW', 'bd.control':'Control (saltos)',
@@ -496,23 +492,23 @@ es: {
 },
 en: {
   'lang.aria':'Language',
-  'hdr.sub':'In-order 5-stage pipeline with multicycle floating-point units, following Appendix C of Hennessy and Patterson.',
+  'hdr.sub':'In-order 5-stage pipeline with multicycle floating-point units, following Hennessy and Patterson.',
   'prog.h':'Program', 'prog.isa':'RISC-V assembly (RV64IMFD)',
   'ex.label':'Example', 'ex.load':'Load', 'code.aria':'Assembly code',
   'run':'Run', 'setref':'Set as baseline', 'setref.title':'Saves the cycle count of this version to compare it with the next one', 'hint':'Ctrl + Enter runs',
   'cpu.h':'Processor', 'reset':'Textbook values',
-  'model.label':'Timing model', 'model.ch3':'Chapter 3 latencies', 'model.appc':'Detailed Appendix C',
-  'model.note.ch3':'Uses the latency table of Chapter 3 (load→FP 1, FP→FP 3, FP→store 2). There are no MEM/WB conflicts. A store uses its data in MEM; if the data will not arrive in time, the store is held in ID and does not occupy EX.',
-  'model.note.appc':'Reproduces the Appendix C diagrams: FP operations also use MEM and WB, so write-port conflicts appear. A store uses its data in MEM, but it moves on to EX and waits there until the data can be forwarded, blocking the integer instructions behind it.',
+  'model.label':'MEM/WB conflicts (Appendix C)',
+  'model.note.ch3':'When unticked there are no MEM/WB conflicts, and a store whose data will not reach MEM in time is held in ID without occupying EX.',
+  'model.note.appc':'As in the Appendix C diagrams: FP operations also use MEM and WB, so write-port conflicts appear. A store uses its data in MEM, but it moves on to EX and waits there until the data can be forwarded, blocking the integer instructions behind it.',
   'fwd':'Result forwarding',
   'stallfirst':'Draw stalls before the stage',
   'stallfirst.note':'This is the convention of the 7th edition of Hennessy-Patterson. Untick it to use the one in some earlier editions, which draw the stage first and then the stalls while the instruction waits in it.',
   'branch.label':'Branch handling', 'branch.pnt':'Predict not taken', 'branch.freeze':'Freeze the pipeline', 'branch.delayed':'Delayed branch (teaching mode, as in MIPS)',
-  'branch.note.delayed':'RISC-V has no delayed branches: this is a teaching mode that follows MIPS semantics, with 1 slot that always executes. With branches resolved in EX, the slot covers only one of the two cycles and the other is lost.',
+  'branch.note.delayed':'RISC-V has no delayed branches: this is a teaching mode that follows MIPS semantics. There is one slot for each cycle the branch would cost: 2 when it is resolved in EX and 1 when it is resolved in ID. The instructions in the slots always execute, whether the branch is taken or not.',
   'units.unit':'Unit', 'units.lat':'EX cycles', 'units.pip':'Pipelined',
   'u.int':'Integer (EX)', 'u.add':'FP adder', 'u.mul':'FP multiplier', 'u.div':'FP divider', 'yes':'yes',
   'lat.add':'FP adder execution cycles', 'lat.mul':'FP multiplier execution cycles', 'lat.div':'FP divider execution cycles',
-  'cpu.note':'Cycles the operation spends in its unit. The textbook latency is one cycle less: adder 4 → latency 3, multiplier 7 → latency 6, divider 25 → latency 24 (initiation interval 25 when not pipelined). WAW stalls and stalls for non-pipelined units are detected in ID.',
+  'cpu.note':'The default values are those of Hennessy and Patterson. They are the cycles the operation spends in its unit; the latency is one cycle less: adder 4 → latency 3, multiplier 7 → latency 6, divider 25 → latency 24 (initiation interval 25, not pipelined). WAW stalls and stalls for non-pipelined units are detected in ID.',
   'res.h':'Results',
   'pipe.h':'Pipeline state', 'pipe.keys':'← → to change cycle',
   'st.first':'Go to the first cycle', 'st.prev':'Previous cycle', 'st.next':'Next cycle', 'st.last':'Go to the last cycle',
@@ -564,7 +560,7 @@ en: {
   'resolve.note.ex':'The branch is decided at the end of EX: it reads its registers like any other instruction (no stall after an addi), but 2 cycles are lost when it is taken.',
   'resolve.note.id':'The branch is decided in ID: only 1 cycle is lost when it is taken, but it needs its registers earlier (1 stall after an integer op and 2 after a load).',
   'sum.resEX':'branches in EX', 'sum.resID':'branches in ID', 'leg.control':'Freeze (branch)', 'cell.wait':'Waiting', 'cell.inEX':' (in EX)',
-  'sum.ch3':'chapter 3 latencies', 'sum.appc':'Appendix C model', 'sum.fwdOn':'with forwarding', 'sum.fwdOff':'no forwarding',
+  'sum.appc':'MEM/WB conflicts', 'sum.fwdOn':'with forwarding', 'sum.fwdOff':'no forwarding',
   'sum.pnt':'predict not taken', 'sum.freeze':'freeze', 'sum.delayed':'delayed branch (teaching)',
   'stat.cycles':'Cycles', 'stat.instr':'Instructions', 'stat.cpi':'CPI', 'stat.stalls':'Stall cycles',
   'bd.title':'Stalls by type', 'bd.raw':'RAW', 'bd.struct':'Structural', 'bd.waw':'WAW', 'bd.control':'Control (branches)',
@@ -741,7 +737,7 @@ function parseInstr(text, ln, labels){
   if (IMM_OPS[mn]) { need(3); return alu(IMM_OPS[mn], X(0), X(1), null, imm(ops[2])); }
   switch (mn) {
     case 'li': need(2); return alu('add', X(0), X0, null, imm(ops[1]));
-    case 'la': { need(2); const L=labels[ops[1]]; if(!L||L.seg!=='data') throw new AsmError(ln,t('err.noDataLabel',{l:ops[1]})); return alu('add', X(0), X0, null, L.addr); }
+    case 'la': { need(2); const L=labels[ops[1]]; if(!L||L.seg!=='data') throw new AsmError(ln,t('err.noDataLabel',{l:ops[1]})); return {...alu('add', X(0), X0, null, L.addr), la:true}; }
     case 'mv': need(2); return alu('add', X(0), X(1), null, 0);
     case 'nop': need(0); return {...alu('add', X0, X0, null, 0), nop:true};
     case 'lui': need(2); return alu('add', X(0), X0, null, imm(ops[1])*4096);
@@ -801,7 +797,10 @@ function simulate(prog, cfg){
   const avail = {}, lastW = {};
   let intEXFree = 0; const unitFree = {add:0, mul:0, div:0};
   let lastX = 0, nextF = 1, pc = 0, dyn = 0;
-  let slotReturn = null, slotInfo = null, pendingPre = null;   // delayed branch: where to go after the slot
+  // delayed branch: where to go after the slots, how many slots are left, and when the branch is resolved
+  let slotReturn = null, slotsLeft = 0, slotInfo = null, pendingPre = null;
+  // integer registers holding a data address (from la, plus or minus an integer): shown in hexadecimal
+  const xa = new Array(32).fill(false);
   let warning = null;
   const stats = {raw:0, struct:0, waw:0, control:0};
   const n = prog.instrs.length;
@@ -883,14 +882,19 @@ function simulate(prog, cfg){
 
     // ---- functional execution ----
     let nextPc = pc + 1, taken = false;
-    const wr = (r, v) => {
+    const wr = (r, v, addr = false) => {
       if (!r) return;
       if (r.f) { fr[r.n] = Number(v); row.wkey = 'f' + r.n; row.wval = fr[r.n]; }
-      else if (r.n !== 0) { xr[r.n] = w64(BigInt(v)); row.wkey = 'x' + r.n; row.wval = xr[r.n]; }
+      else if (r.n !== 0) { xr[r.n] = w64(BigInt(v)); xa[r.n] = addr; row.wkey = 'x' + r.n; row.wval = xr[r.n]; row.waddr = addr; }
     };
     const rv = r => r ? (r.f ? fr[r.n] : xr[r.n]) : 0n;
+    const isAddr = r => !!r && !r.f && xa[r.n];
     switch (ins.kind) {
-      case 'alu': wr(ins.rd, ALU[ins.fn](rv(ins.a), ins.b ? rv(ins.b) : BigInt(ins.imm))); break;
+      case 'alu': {
+        // address +/- integer is still an address; address - address is a distance
+        const addr = ins.la || ((ins.fn === 'add' || ins.fn === 'sub') && isAddr(ins.a) !== isAddr(ins.b) && !(ins.fn === 'sub' && isAddr(ins.b)));
+        wr(ins.rd, ALU[ins.fn](rv(ins.a), ins.b ? rv(ins.b) : BigInt(ins.imm)), addr); break;
+      }
       case 'load': {
         const o = memAddr(ins, ins.size);
         if (ins.rd.f) wr(ins.rd, ins.size===8 ? dv.getFloat64(o, true) : dv.getFloat32(o, true));
@@ -936,15 +940,19 @@ function simulate(prog, cfg){
     // first cycle in which the branch target is known
     const resolvedAt = resEX ? Xc + 1 : Xc;
     if (isSlot) {
+      if (--slotsLeft > 0) { pc = pc + 1; nextF = D; continue; }
       pc = slotReturn; slotReturn = null;
       nextF = Math.max(D, slotInfo.at);
-      const lost = nextF - D;           // with branches in EX one slot is not enough: one more cycle is lost
+      const lost = nextF - D;           // cycles the slots did not cover (the program ended before filling them all)
       if (lost > 0) pendingPre = {from:D, to:nextF, lost, b:slotInfo.b};
       slotInfo = null; continue;
     }
     if (isCtl) {
-      if (cfg.branch === 'delayed' && pc + 1 < n) {
-        slotReturn = nextPc; slotInfo = {at: resolvedAt, b: ins.text}; pc = pc + 1; nextF = D;
+      // delayed branch: one slot per cycle lost (2 with branches in EX, 1 in ID); the slots always execute
+      const slots = Math.min(LOST, n - (pc + 1));
+      if (cfg.branch === 'delayed' && slots > 0) {
+        // not taken: continue after the slots, which have already executed
+        slotReturn = taken ? nextPc : pc + 1 + slots; slotsLeft = slots; slotInfo = {at: resolvedAt, b: ins.text}; pc = pc + 1; nextF = D;
         continue;
       }
       if (cfg.branch === 'freeze' || cfg.branch === 'delayed') {   // (delayed branch with no instruction for the slot: freeze)
@@ -967,7 +975,7 @@ function simulate(prog, cfg){
 
   const real = rows.filter(r => !r.flushed);
   const cycles = real.length ? Math.max(...real.map(r => r.W)) : 0;
-  return {rows, stats, cycles, count: real.length, cpi: real.length ? cycles / real.length : 0, xr, fr, dv, warning};
+  return {rows, stats, cycles, count: real.length, cpi: real.length ? cycles / real.length : 0, xr, xa, fr, dv, warning};
 }
 
 /* cells of one diagram row: Map cycle -> {t, k, why}
@@ -1026,11 +1034,11 @@ function locate(r, c){
 }
 /* registers and memory at the end of cycle c */
 function stateAt(sim, prog, c){
-  const x = new Array(32).fill(0n), f = new Float64Array(32), dv = new DataView(prog.memInit.slice(0));
+  const x = new Array(32).fill(0n), xa = new Array(32).fill(false), f = new Float64Array(32), dv = new DataView(prog.memInit.slice(0));
   const changed = new Set();
   for (const r of sim.rows) {
     if (r.flushed) continue;
-    if (r.wkey && r.W <= c) { const n = +r.wkey.slice(1); if (r.wkey[0]==='f') f[n] = r.wval; else x[n] = r.wval; if (r.W === c) changed.add(r.wkey); }
+    if (r.wkey && r.W <= c) { const n = +r.wkey.slice(1); if (r.wkey[0]==='f') f[n] = r.wval; else { x[n] = r.wval; xa[n] = !!r.waddr; } if (r.W === c) changed.add(r.wkey); }
     if (r.st && r.M <= c) {
       const {o, size, f:isF, v} = r.st;
       if (isF) { if (size===8) dv.setFloat64(o, v, true); else dv.setFloat32(o, v, true); }
@@ -1038,8 +1046,10 @@ function stateAt(sim, prog, c){
       if (r.M === c) changed.add('m' + (DATA_BASE + o));
     }
   }
-  return {x, f, dv, changed};
+  return {x, xa, f, dv, changed};
 }
+/* integer register value: decimal, or hexadecimal when it holds a data address */
+const fmtInt = (v, addr) => addr ? '0x' + BigInt.asUintN(64, v).toString(16) : String(v);
 const typeName = k => t('type.' + k);
 
 /* ================= User interface ================= */
@@ -1322,8 +1332,8 @@ loop:   fsd     f4, 0(x1)       # store x[i]
 `}},
   {id:'delayed', branch:'delayed',
    name:{es:'Salto retardado (didáctico)', en:'Delayed branch (teaching mode)'},
-   note:{es:'Este ejemplo activa el salto retardado, que RISC-V no tiene: es un modo didáctico como el de MIPS. fsd ocupa el hueco y se ejecuta siempre, se tome o no el salto.',
-         en:'This example turns on the delayed branch, which RISC-V does not have: it is a teaching mode like MIPS. fsd fills the slot and always executes, whether the branch is taken or not.'},
+   note:{es:'Este ejemplo activa el salto retardado, que RISC-V no tiene: es un modo didáctico como el de MIPS. Con los saltos en EX hay 2 huecos: fsd ocupa el primero y, como no hay nada más útil que adelantar, el segundo lleva un nop. Las instrucciones de los huecos se ejecutan siempre.',
+         en:'This example turns on the delayed branch, which RISC-V does not have: it is a teaching mode like MIPS. With branches in EX there are 2 slots: fsd fills the first one and, as there is nothing else useful to move there, the second one holds a nop. The instructions in the slots always execute.'},
    code:{es:
 `# x[i] = x[i] + s  con salto retardado
 ${EX_HEAD.es}
@@ -1331,7 +1341,8 @@ bucle:  fld     f0, 0(x1)
         addi    x1, x1, -8
         fadd.d  f4, f0, f2
         bne     x1, x2, bucle
-        fsd     f4, 8(x1)       # hueco de retardo
+        fsd     f4, 8(x1)       # hueco 1
+        nop                     # hueco 2 (solo con saltos en EX)
 `, en:
 `# x[i] = x[i] + s  with a delayed branch
 ${EX_HEAD.en}
@@ -1339,7 +1350,8 @@ loop:   fld     f0, 0(x1)
         addi    x1, x1, -8
         fadd.d  f4, f0, f2
         bne     x1, x2, loop
-        fsd     f4, 8(x1)       # delay slot
+        fsd     f4, 8(x1)       # slot 1
+        nop                     # slot 2 (only with branches in EX)
 `}},
   {id:'divpip', model:'appc',
    name:{es:'Divisiones independientes', en:'Independent divisions'},
@@ -1416,7 +1428,7 @@ function initUI(){
 
   // configuration
   function syncCfgUI(){
-    $('cfg-model').value = cfg.model;
+    $('cfg-appc').checked = cfg.model === 'appc';
     $('cfg-stallfirst').checked = cfg.stallFirst !== false;
     $('cfg-fwd').checked = cfg.forwarding;
     $('cfg-branch').value = cfg.branch;
@@ -1424,7 +1436,7 @@ function initUI(){
     for (const u of ['add','mul','div']) { $('lat-'+u).value = cfg.lat[u]; $('pip-'+u).checked = cfg.pipelined[u]; }
   }
   function readCfgUI(){
-    cfg.model = $('cfg-model').value;
+    cfg.model = $('cfg-appc').checked ? 'appc' : 'ch3';
     cfg.stallFirst = $('cfg-stallfirst').checked;
     cfg.forwarding = $('cfg-fwd').checked;
     cfg.branch = $('cfg-branch').value;
@@ -1436,7 +1448,7 @@ function initUI(){
       cfg.pipelined[u] = $('pip-'+u).checked;
     }
   }
-  ['cfg-model','cfg-stallfirst','cfg-fwd','cfg-branch','cfg-resolve','lat-add','lat-mul','lat-div','pip-add','pip-mul','pip-div'].forEach(id =>
+  ['cfg-appc','cfg-stallfirst','cfg-fwd','cfg-branch','cfg-resolve','lat-add','lat-mul','lat-div','pip-add','pip-mul','pip-div'].forEach(id =>
     $(id).addEventListener('change', () => { readCfgUI(); for (const u of ['add','mul','div']) $('lat-'+u).value = cfg.lat[u]; run(false); }));
   $('reset-cfg').addEventListener('click', () => { const b = cfg.branch, md = cfg.model, sf = cfg.stallFirst, rs = cfg.resolve; cfg = structuredClone(DEFAULT_CFG); cfg.branch = b; cfg.model = md; cfg.stallFirst = sf; cfg.resolve = rs; syncCfgUI(); run(false); });
 
@@ -1507,7 +1519,7 @@ function initUI(){
     $('branch-note').hidden = cfg.branch !== 'delayed';
     $('branch-note').textContent = t('branch.note.delayed');
     const totalStalls = r.stats.raw + r.stats.struct + r.stats.waw + r.stats.control;
-    $('cfg-summary').textContent = `${t(cfg.model==='ch3'?'sum.ch3':'sum.appc')} · ${t(cfg.forwarding?'sum.fwdOn':'sum.fwdOff')} · ${t('sum.'+cfg.branch)} · ${t(cfg.resolve==='id'?'sum.resID':'sum.resEX')}`;
+    $('cfg-summary').textContent = `${cfg.model==='appc' ? t('sum.appc') + ' · ' : ''}${t(cfg.forwarding?'sum.fwdOn':'sum.fwdOff')} · ${t('sum.'+cfg.branch)} · ${t(cfg.resolve==='id'?'sum.resID':'sum.resEX')}`;
     $('stats').innerHTML = [
       [t('stat.cycles'), r.cycles],
       [t('stat.instr'), r.count],
@@ -1538,10 +1550,9 @@ function initUI(){
     const rows = last.rows;
     let from = page*PAGE, to = page*PAGE + PAGE;
     if (stepMode) {
-      let lastIdx = -1;
-      rows.forEach((r, i) => { if ((r.pre ? r.pre.to - (r.pre.lost || 1) : r.F) <= cur) lastIdx = i; });
-      page = Math.max(0, Math.floor(lastIdx / PAGE));
-      from = page*PAGE; to = Math.min(lastIdx + 1, page*PAGE + PAGE);
+      // sliding window: the last PAGE rows fetched up to this cycle (does not touch the full-run page)
+      const lastIdx = lastRowAt(cur);
+      from = Math.max(0, lastIdx + 1 - PAGE); to = lastIdx + 1;
     }
     const slice = rows.slice(from, to);
     if (!slice.length) { $('diag').innerHTML = `<p class="empty">${t('diag.none')}</p>`; $('pager').innerHTML=''; return; }
@@ -1583,6 +1594,15 @@ function initUI(){
       $('pg-prev').addEventListener('click', () => { page--; renderDiagram(); });
       $('pg-next').addEventListener('click', () => { page++; renderDiagram(); });
     } else $('pager').innerHTML = `<span>${t('pager.rows',{n:rows.length})}</span>`;
+  }
+
+  // index of the last row that has appeared by cycle c (rows are in fetch order; binary search)
+  const rowStart = r => r.pre ? r.pre.to - (r.pre.lost || 1) : r.F;
+  function lastRowAt(c){
+    const rows = last.rows;
+    let lo = 0, hi = rows.length - 1, ans = -1;
+    while (lo <= hi) { const mid = (lo + hi) >> 1; if (rowStart(rows[mid]) <= c) { ans = mid; lo = mid + 1; } else hi = mid - 1; }
+    return ans;
   }
 
   /* ---------- cycle-by-cycle mode ---------- */
@@ -1650,13 +1670,15 @@ function initUI(){
       if ((r.ins.kind === 'branch') && resC === c) ev.push([resS, 'k-' + resS, t('ev.resolved',{i:`<code>${esc(r.ins.text)}</code>`, res:t(r.taken ? 'ev.taken' : 'ev.notTaken')})]);
       if ((r.ins.kind === 'jump' || r.ins.kind === 'jalr') && resC === c) ev.push([resS, 'k-' + resS, t('ev.resolved',{i:`<code>${esc(r.ins.text)}</code>`, res:t('ev.taken')})]);
       if (r.st && r.M === c) ev.push(['MEM', 'k-MEM', t('ev.writes',{i:`<code>${esc(r.ins.text)}</code>`, dst:`M[0x${(DATA_BASE + r.st.o).toString(16)}]`, v:fmtv(r.st.v)})]);
-      if (r.wkey && r.W === c) ev.push(['WB', 'k-WB', t('ev.writes',{i:`<code>${esc(r.ins.text)}</code>`, dst:r.wkey, v:(r.wkey[0]==='x' && r.wval >= DATA_BASE && r.wval < DATA_BASE+MEM_SIZE ? '0x'+r.wval.toString(16) : fmtv(r.wval))})]);
+      if (r.wkey && r.W === c) ev.push(['WB', 'k-WB', t('ev.writes',{i:`<code>${esc(r.ins.text)}</code>`, dst:r.wkey, v:(r.wkey[0]==='x' ? fmtInt(r.wval, r.waddr) : fmtv(r.wval))})]);
     }
     $('events').innerHTML = `<p class="label" style="margin:4px 0 2px">${t('ev.title',{c})}</p>` +
       (ev.length ? ev.map(([tg, k, txt]) => `<div><span class="tag ${k}">${tg}</span><span>${txt}</span></div>`).join('') : `<span class="empty" style="padding:0">${t('ev.none')}</span>`);
   }
 
-  function renderDetails(){
+  function renderDetails(){ renderStalls(); renderState(); }
+  // the stall list does not depend on the current cycle: it is only rebuilt after a run
+  function renderStalls(){
     const items = [];
     last.rows.forEach(r => {
       if (r.flushed) return;
@@ -1668,15 +1690,16 @@ function initUI(){
       items.push(`<li><span><code>${esc(r.ins.text)}</code> <span class="why">${t('det.at',{l:r.ins.line, c:r.D})}</span></span>${reasons}</li>`);
     });
     $('det-stalls').innerHTML = items.length ? `<ol>${items.join('')}</ol>` : `<p class="empty">${t('det.none')}</p>`;
-
-    const st = stepMode ? stateAt(last, last.prog, cur) : {x:last.xr, f:last.fr, dv:last.dv, changed:new Set()};
+  }
+  function renderState(){
+    const st = stepMode ? stateAt(last, last.prog, cur) : {x:last.xr, xa:last.xa, f:last.fr, dv:last.dv, changed:new Set()};
     const xr = st.x, fr = st.f;
     const when = stepMode ? t('regs.whenStep',{c:cur}) : t('regs.whenEnd');
     let regs = `<p class="label" style="margin:0 0 6px">${t('regs.fp')}${when}</p><div class="state-grid">`;
     for (let i = 0; i < 32; i++) regs += `<div class="${st.changed.has('f'+i)?'chg':fr[i]!==0?'nz':'z'}"><span>f${i}</span><span>${fmtNum(fr[i])}</span></div>`;
     regs += `</div><p class="label" style="margin:14px 0 6px">${t('regs.int')}${when}</p><div class="state-grid">`;
     let anyInt = false;
-    for (let i = 1; i < 32; i++) if (xr[i] !== 0n) { anyInt = true; regs += `<div class="${st.changed.has('x'+i)?'chg':'nz'}"><span>x${i}</span><span>${xr[i] >= DATA_BASE && xr[i] < DATA_BASE+MEM_SIZE ? '0x'+xr[i].toString(16) : xr[i]}</span></div>`; }
+    for (let i = 1; i < 32; i++) if (xr[i] !== 0n) { anyInt = true; regs += `<div class="${st.changed.has('x'+i)?'chg':'nz'}" title="${fmtInt(xr[i], !st.xa[i])}"><span>x${i}</span><span>${fmtInt(xr[i], st.xa[i])}</span></div>`; }
     regs += anyInt ? '</div>' : `</div><p class="empty" style="padding:0">${t('regs.allZero')}</p>`;
     $('det-regs').innerHTML = regs;
 
@@ -1698,13 +1721,21 @@ function initUI(){
     $('mode-full').setAttribute('aria-pressed', String(!step));
     $('mode-step').setAttribute('aria-pressed', String(step));
     $('pipe-panel').hidden = !step;
-    if (step) cur = 1;
+    if (last && last.rows.length) {
+      // keep the place: enter at the first cycle of the page being viewed, leave at the page of the current cycle
+      if (step) cur = page > 0 && last.rows[page*PAGE] ? Math.min(last.cycles, rowStart(last.rows[page*PAGE])) : 1;
+      else page = Math.max(0, Math.floor(Math.max(0, lastRowAt(cur)) / PAGE));
+    } else if (step) cur = 1;
     if (last) render();
   }
+  // several requests in the same frame (a held arrow key, the slider) are drawn only once
+  let frame = 0;
   function goto(c){
     if (!last) return;
     cur = Math.min(last.cycles, Math.max(1, c));
-    renderPipe(); renderDiagram(); renderDetails();
+    $('st-now').textContent = t('pipe.now',{c:cur, n:last.cycles});
+    if (frame) return;
+    frame = requestAnimationFrame(() => { frame = 0; if (!last || !stepMode) return; renderPipe(); renderDiagram(); renderState(); });
   }
   function stopPlay(){ if (playTimer) { clearInterval(playTimer); playTimer = null; } $('st-play').textContent = t('st.play'); }
   function togglePlay(){

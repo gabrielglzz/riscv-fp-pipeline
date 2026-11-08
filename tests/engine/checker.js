@@ -34,7 +34,8 @@ function allConfigs() {
 }
 
 /* ---------- reference interpreter ---------- */
-function refRun(prog, delayed, DATA_BASE) {
+// slots: delay slots after each control instruction (0 = no delayed branch)
+function refRun(prog, slots, DATA_BASE) {
   const x = new Array(32).fill(0n), f = new Float64Array(32);
   const dv = new DataView(prog.memInit.slice(0));
   const S = v => BigInt.asIntN(64, v), U = v => BigInt.asUintN(64, v);
@@ -45,13 +46,13 @@ function refRun(prog, delayed, DATA_BASE) {
     if (v === -Infinity) return lo;
     const b = BigInt(rne(v)); return b > hi ? hi : b < lo ? lo : b;
   };
-  let pc = 0, steps = 0, slot = null;
+  let pc = 0, steps = 0, slot = null, left = 0;
   const n = prog.instrs.length;
   const gx = r => r.n === 0 ? 0n : x[r.n];
   const sx = (r, v) => { if (r && !r.f && r.n !== 0) x[r.n] = S(v); };
   while (pc >= 0 && pc < n && steps < 4000) {
     const I = prog.instrs[pc]; steps++;
-    let next = pc + 1, ctl = false;
+    let next = pc + 1, ctl = false, taken = false;
     const A = I.a ? (I.a.f ? f[I.a.n] : gx(I.a)) : 0n;
     const B = I.b ? (I.b.f ? f[I.b.n] : gx(I.b)) : (I.imm !== undefined ? BigInt(I.imm) : 0n);
     switch (I.kind) {
@@ -81,10 +82,10 @@ function refRun(prog, delayed, DATA_BASE) {
       case 'branch': {
         const a = gx(I.a), b = gx(I.b);
         const tk = { beq: a === b, bne: a !== b, blt: a < b, bge: a >= b, bltu: U(a) < U(b), bgeu: U(a) >= U(b) }[I.cmp];
-        ctl = true; if (tk) next = I.target; break;
+        ctl = true; if (tk) { next = I.target; taken = true; } break;
       }
-      case 'jump': sx(I.rd, BigInt((pc + 1) * 4)); ctl = true; next = I.target; break;
-      case 'jalr': ctl = true; next = Number(gx(I.a)) / 4 | 0; break;
+      case 'jump': sx(I.rd, BigInt((pc + 1) * 4)); ctl = true; taken = true; next = I.target; break;
+      case 'jalr': ctl = true; taken = true; next = Number(gx(I.a)) / 4 | 0; break;
       case 'fp': {
         const a = f[I.a.n], b = I.b ? f[I.b.n] : 0;
         let v = { add: a + b, sub: a - b, mul: a * b, div: a / b, sqrt: Math.sqrt(a), min: Math.min(a, b), max: Math.max(a, b) }[I.op];
@@ -101,8 +102,12 @@ function refRun(prog, delayed, DATA_BASE) {
       }
       case 'halt': return { x, f, dv, steps };
     }
-    if (slot !== null) { pc = slot; slot = null; continue; }
-    if (ctl && delayed && pc + 1 < n) { slot = next; pc = pc + 1; continue; }
+    if (slot !== null) { if (--left > 0) { pc = pc + 1; continue; } pc = slot; slot = null; continue; }
+    if (ctl && slots && pc + 1 < n) {
+      left = Math.min(slots, n - (pc + 1));
+      slot = taken ? next : pc + 1 + left;   // not taken: continue after the slots
+      pc = pc + 1; continue;
+    }
     pc = next;
   }
   return { x, f, dv, steps };
@@ -142,7 +147,7 @@ function genProgram(rng) {
       `  lw ${xr()}, ${4 * rnd(8)}(x11)`, `  sw ${xr()}, ${4 * rnd(16)}(x12)`, `  flw ${fr()}, ${4 * rnd(16)}(x10)`,
       `  fsw ${fr()}, ${4 * rnd(16)}(x12)`, `  li ${xr()}, ${rnd(200) - 100}`, `  mv ${xr()}, ${xr()}`,
       `  li ${xr()}, ${pick(['0x7fffffff', '-0x80000000', '4000000000', '-0x1'])}`]));
-    else body.push(`  ${pick(['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu'])} ${xr()}, ${xr()}, skip${i}`, '  addi x6, x6, 1', `skip${i}:`);
+    else body.push(`  ${pick(['beq', 'bne', 'blt', 'bge', 'bltu', 'bgeu'])} ${xr()}, ${xr()}, skip${i}`, '  addi x6, x6, 1', '  addi x7, x7, 1', `skip${i}:`);   // 2 instructions: room for 2 delay slots
   }
   L.push('loop:', ...body, '  addi x5, x5, -1', '  bne x5, x0, loop', '  nop', '  fsd f1, 0(x12)');
   return L.join('\n');
@@ -231,11 +236,11 @@ function checkSim(S, prog, cfg) {
   const expCtl = rows.filter(r => r.flushed).length + rows.reduce((a, r) => a + (r.pre ? r.pre.lost : 0), 0);
   ok(sim.stats.control === expCtl, 'stats.control', () => `control=${sim.stats.control}, drawn ${expCtl}`);
   rows.forEach((r, i) => {
-    if (r.flushed) return;
+    if (r.flushed || r.slot) return;
     const p = rows.slice(0, i).reverse().find(q => !q.flushed);
     if (!p) return;
-    const pi = rows.indexOf(p);
-    const br = CTL.includes(p.ins.kind) ? p : (p.slot ? rows.slice(0, pi).reverse().find(q => !q.flushed) : null);
+    // after the delay slots, the control instruction is the last row before them
+    const br = CTL.includes(p.ins.kind) ? p : (p.slot ? rows.slice(0, i).reverse().find(q => !q.flushed && !q.slot) : null);
     if (br && CTL.includes(br.ins.kind) && (br.taken || br.ins.kind !== 'branch') && (cfg.branch !== 'delayed' || p.slot)) {
       const at = cfg.resolve === 'id' ? br.X : br.X + 1;
       ok(r.F >= at, 'fetch.early', () => `${r.ins.text} fetched in cycle ${r.F}, before ${br.ins.text} is resolved (${at})`);
@@ -294,7 +299,7 @@ function checkSim(S, prog, cfg) {
 }
 
 function compareRef(S, prog, sim, cfg) {
-  const ref = refRun(prog, cfg.branch === 'delayed', S.DATA_BASE);
+  const ref = refRun(prog, cfg.branch === 'delayed' ? (cfg.resolve === 'id' ? 1 : 2) : 0, S.DATA_BASE);
   for (let i = 1; i < 32; i++) if (sim.xr[i] !== ref.x[i]) return `x${i}: simulator=${sim.xr[i]} reference=${ref.x[i]}`;
   for (let i = 0; i < 32; i++) if (!Object.is(sim.fr[i], ref.f[i]) && !(Number.isNaN(sim.fr[i]) && Number.isNaN(ref.f[i]))) return `f${i}: simulator=${sim.fr[i]} reference=${ref.f[i]}`;
   for (let o = 0; o < 0x400; o += 8) if (sim.dv.getBigInt64(o, true) !== ref.dv.getBigInt64(o, true)) return `memory 0x${(S.DATA_BASE + o).toString(16)}`;
