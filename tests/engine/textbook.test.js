@@ -22,7 +22,7 @@ function row(r, i, cfg) {
   return { first: ks[0], cells: ks.map(k => m.get(k).t).join(' ') };
 }
 
-test('defaults: Chapter 3 model, branches in EX, 4/7/25-cycle units', () => {
+test('defaults: no MEM/WB conflicts, branches in EX, Hennessy and Patterson 4/7/25-cycle units', () => {
   assert.equal(C.model, 'ch3');
   assert.equal(C.resolve, 'ex');
   assert.deepEqual(plain(C.lat), { add: 4, mul: 7, div: 25 });
@@ -79,12 +79,56 @@ test('Appendix C: divider with latency 24 and initiation interval 25', () => {
 });
 
 test('branch penalty depending on where branches resolve and how they are handled', () => {
-  const src = '.text\n li x1, 2\nl: addi x1, x1, -1\n bne x1, x0, l\n nop\n';
+  const src = '.text\n li x1, 2\nl: addi x1, x1, -1\n bne x1, x0, l\n nop\n nop\n';
   const ctl = (branch, resolve) => S.simulate(S.assemble(src), { ...C, branch, resolve }).stats.control;
   assert.equal(ctl('pnt', 'ex'), 2, 'predict not taken, EX: 2 squashed instructions per taken branch');
   assert.equal(ctl('pnt', 'id'), 1, 'predict not taken, ID: 1');
   assert.equal(ctl('freeze', 'ex'), 4, 'freeze, EX: 2 cycles per branch (2 branches)');
   assert.equal(ctl('freeze', 'id'), 2, 'freeze, ID: 1 cycle per branch');
   assert.equal(ctl('delayed', 'id'), 0, 'delayed branch, ID: the slot covers the penalty');
-  assert.equal(ctl('delayed', 'ex'), 2, 'delayed branch, EX: the slot covers only one of the two cycles');
+  assert.equal(ctl('delayed', 'ex'), 0, 'delayed branch, EX: the 2 slots cover the penalty');
+});
+
+test('delayed branch: 2 slots with branches in EX, 1 in ID, and the slots always execute', () => {
+  const src = '.text\n li x1, 2\nl: addi x1, x1, -1\n bne x1, x0, l\n addi x2, x2, 1\n addi x3, x3, 1\n addi x4, x4, 1\n';
+  const run = resolve => S.simulate(S.assemble(src), { ...C, branch: 'delayed', resolve });
+  const ex = run('ex'), id = run('id');
+  const slotText = r => r.rows.filter(x => x.slot).map(x => x.ins.text);
+  assert.deepEqual(plain(slotText(ex)), ['addi x2, x2, 1', 'addi x3, x3, 1', 'addi x2, x2, 1', 'addi x3, x3, 1']);
+  assert.deepEqual(plain(slotText(id)), ['addi x2, x2, 1', 'addi x2, x2, 1']);
+  // EX: x2 and x3 run in both slots of both branches; x4 only once after the loop
+  assert.deepEqual([ex.xr[2], ex.xr[3], ex.xr[4]], [2n, 2n, 1n]);
+  // ID: only x2 is in the slot; x3 and x4 run once after the loop
+  assert.deepEqual([id.xr[2], id.xr[3], id.xr[4]], [2n, 1n, 1n]);
+  // the target is fetched right after the last slot: no lost cycles
+  assert.equal(ex.stats.control, 0);
+  assert.equal(ex.rows[5].F, ex.rows[4].F + 1, 'the target follows the second slot');
+  // a branch in the second slot is an error
+  assert.throws(() => S.simulate(S.assemble('.text\nl: beq x0, x0, e\n nop\n beq x0, x0, l\ne: nop\n'), { ...C, branch: 'delayed', resolve: 'ex' }), /delay slot|hueco/);
+  // only 1 instruction after the branch: 1 slot, and the cycle of the missing slot is lost
+  const short = S.simulate(S.assemble('.text\n beq x0, x1, e\ne: nop\n'), { ...C, branch: 'delayed', resolve: 'ex' });
+  assert.deepEqual(plain(short.rows.map(x => !!x.slot)), [false, true, false]);
+  assert.equal(short.stats.control, 1);
+});
+
+test('integer registers: decimal values, hexadecimal only for data addresses', () => {
+  const src = '.data\nv: .double 1, 2\n.text\n la x1, v\n addi x1, x1, 8\n li x2, 70000\n addi x3, x0, 65536\n add x4, x2, x3\n' +
+    ' la x5, v\n sub x6, x1, x5\n add x7, x3, x1\n mv x8, x1\n ld x9, 0(x5)\n li x10, -1\n';
+  const r = S.simulate(S.assemble(src), C);
+  const addr = i => r.xa[i];
+  assert.equal(addr(1), true, 'la + addi is an address');
+  assert.equal(addr(2), false, 'li 70000 is a number even though it looks like an address');
+  assert.equal(addr(3), false);
+  assert.equal(addr(4), false, 'the sum of two numbers is a number');
+  assert.equal(addr(6), false, 'address - address is a distance');
+  assert.equal(addr(7), true, 'number + address is an address');
+  assert.equal(addr(8), true, 'mv keeps the address');
+  assert.equal(addr(9), false, 'a loaded value is a number');
+  assert.equal(r.xr[4], 135536n);
+  assert.equal(S.fmtInt(r.xr[4], r.xa[4]), '135536');
+  assert.equal(S.fmtInt(r.xr[1], r.xa[1]), '0x10008');
+  assert.equal(S.fmtInt(r.xr[10], r.xa[10]), '-1');
+  // the state rebuilt cycle by cycle keeps the same flags
+  const st = S.stateAt(r, S.assemble(src), r.cycles);
+  for (let i = 1; i <= 10; i++) assert.equal(st.xa[i], r.xa[i], `x${i}`);
 });

@@ -16,7 +16,7 @@ function loadSim() {
   if (!m) throw new Error('Cannot find the simulator <script> in index.html');
   const exportsCode = `
 ;globalThis.__sim = {
-  assemble, simulate, rowCells, locate, stateAt,
+  assemble, simulate, rowCells, locate, stateAt, fmtInt,
   EXAMPLES, DEFAULT_CFG, AsmError, DATA_BASE, MEM_SIZE, LIMIT_DYN, I18N,
   setLang: l => { LANG = l; }, getLang: () => LANG,
 };`;

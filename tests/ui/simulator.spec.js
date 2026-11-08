@@ -201,3 +201,68 @@ test('dark theme without errors', async ({ browser }) => {
   expect(errors).toEqual([]);
   await context.close();
 });
+
+test('integer sums are shown in decimal; only addresses in hexadecimal', async ({ page }) => {
+  await open(page, 'es');
+  await page.fill('#code', '.data\nv: .double 1\n.text\n la x1, v\n li x2, 70000\n addi x3, x2, 1000\n add x4, x3, x2\n');
+  await page.click('#run');
+  await page.click('#tab-regs');
+  const reg = n => page.locator(`#det-regs .state-grid div:has(> span:text-is("x${n}"))`);
+  await expect(reg(1)).toContainText('0x10000');
+  await expect(reg(3)).toContainText('71000');
+  await expect(reg(4)).toContainText('141000');
+  await expect(page.locator('#det-regs')).not.toContainText('0x11558');   // 71000 used to be shown in hex
+  await page.click('#mode-step');
+  await page.click('#st-last');
+  await expect(reg(4)).toContainText('141000');
+});
+
+test('MEM/WB conflicts are an option, off by default', async ({ page }) => {
+  await open(page, 'es');
+  await expect(page.locator('#cfg-appc')).not.toBeChecked();
+  await expect(page.locator('#cfg-summary')).not.toContainText('MEM/WB');
+  await loadExample(page, 'struct');                      // the example turns it on
+  await expect(page.locator('#cfg-appc')).toBeChecked();
+  await expect(page.locator('#cfg-summary')).toContainText('conflictos MEM/WB');
+  await page.uncheck('#cfg-appc');
+  await expect(page.locator('#model-note')).toContainText('no hay conflictos en MEM/WB');
+});
+
+test('delayed branch in EX: two slots, no lost cycles', async ({ page }) => {
+  await open(page, 'es');
+  await loadExample(page, 'delayed');
+  await page.selectOption('#cfg-resolve', 'ex');
+  await expect(page.locator('#diag tbody tr').nth(9).locator('td.ins')).toContainText('fsd f4, 8(x1)');
+  await expect(page.locator('#diag tbody tr').nth(10).locator('td.ins')).toContainText('nop');
+  await expect(page.locator('#diag tbody tr').nth(10).locator('.slot')).toHaveCount(1);
+  await expect(page.locator('#breakdown')).toContainText('Control (saltos): 0');
+  await page.selectOption('#cfg-resolve', 'id');
+  await expect(page.locator('#diag tbody tr').nth(10).locator('td.ins')).toContainText('fld f0, 0(x1)');
+});
+
+test('cycle-by-cycle mode beyond the first page: sliding window, page kept and no freeze', async ({ page }) => {
+  await open(page, 'es');
+  await loadExample(page, 'loop');                         // 42 instructions + squashed ones: 2 pages
+  await page.click('#pg-next');
+  await expect(page.locator('#pager')).toContainText('Instrucciones 41–');
+  // entering step mode keeps the place: it starts at the first cycle of the page being viewed
+  await page.click('#mode-step');
+  const now = async () => Number((await page.locator('#st-now').textContent()).match(/\d+/)[0]);
+  const start = await now();
+  expect(start).toBeGreaterThan(40);
+  // the window always ends at the instruction fetched last and never shrinks to a few rows
+  await expect(page.locator('#diag tbody tr')).toHaveCount(40);
+  for (let i = 0; i < 6; i++) await page.click('#st-prev');
+  // the old pages left only a few rows here; the window keeps every row fetched so far (up to 40)
+  expect(await page.locator('#diag tbody tr').count()).toBeGreaterThan(30);
+  await expect(page.locator('#diag th.now')).toHaveText(String(start - 6));
+  // a held arrow key: many steps, drawn without blocking the page
+  await page.click('#diag');
+  const t0 = Date.now();
+  for (let i = 0; i < 30; i++) await page.keyboard.press('ArrowLeft', { delay: 0 });
+  await expect(page.locator('#diag th.now')).toHaveText(String(start - 36));
+  expect(Date.now() - t0).toBeLessThan(5000);
+  // leaving step mode shows the page of the current cycle
+  await page.click('#mode-full');
+  await expect(page.locator('#pager')).toContainText('Instrucciones 1–40');
+});

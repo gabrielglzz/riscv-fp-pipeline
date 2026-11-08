@@ -2,7 +2,7 @@
 
 [![CI and deployment](https://github.com/gabrielglzz/riscv-fp-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/gabrielglzz/riscv-fp-pipeline/actions/workflows/ci.yml)
 
-Web simulator of an **in-order 5-stage RISC-V pipeline with multicycle floating-point units**, built to teach static instruction scheduling. It follows the Chapter 3 and Appendix C models of *Computer Architecture: A Quantitative Approach* (Hennessy and Patterson, 7th edition).
+Web simulator of an **in-order 5-stage RISC-V pipeline with multicycle floating-point units**, built to teach static instruction scheduling. It follows the pipeline of *Computer Architecture: A Quantitative Approach* (Hennessy and Patterson, 7th edition).
 
 **Try it:** https://gabrielglzz.github.io/riscv-fp-pipeline/
 
@@ -25,19 +25,19 @@ Web simulator of an **in-order 5-stage RISC-V pipeline with multicycle floating-
 
 | Option | Values | Default |
 |---|---|---|
-| Timing model | Chapter 3 latencies · Detailed Appendix C | Chapter 3 |
+| MEM/WB conflicts (Appendix C) | on / off | off |
 | Result forwarding | on / off | on |
 | Branch handling | Predict not taken · Freeze the pipeline · Delayed branch (teaching mode) | Predict not taken |
 | Branch resolution | EX (7th ed., RISC-V) · ID (MIPS editions) | EX |
 | EX cycles (adder / multiplier / divider) | 1–60 | 4 / 7 / 25 |
 | Pipelined units | adder / multiplier / divider | yes / yes / no |
 
-- **Chapter 3**: latencies FP→FP 3, FP→store 2, load→FP 1, load→store 0. MEM/WB conflicts are not modelled.
-- **Appendix C**: FP operations also occupy MEM and WB, which causes write-port conflicts and WAW stalls, and stores wait for their data in EX.
-- **EX cycles** are the cycles an operation spends in its unit. The textbook *latency* is one less: the adder has 4 cycles (latency 3), the multiplier 7 (latency 6) and the divider 25 (latency 24, with an initiation interval of 25 when not pipelined).
+- **Latencies**: the defaults are those of Hennessy and Patterson (FP→FP 3, FP→store 2, load→FP 1, load→store 0).
+- **MEM/WB conflicts** (optional, as in the Appendix C diagrams): FP operations also occupy MEM and WB, which causes write-port conflicts, and stores wait for their data in EX.
+- **EX cycles** are the cycles an operation spends in its unit. The *latency* is one less: the adder has 4 cycles (latency 3), the multiplier 7 (latency 6) and the divider 25 (latency 24, with an initiation interval of 25 when not pipelined).
 - **Branches in EX** read their registers like any other instruction, but a taken branch costs 2 cycles. **Branches in ID** cost only 1 cycle, but need their registers earlier: 1 stall after an integer operation and 2 after a load.
-- **RISC-V has no delayed branches.** That mode is a teaching aid with MIPS semantics.
-- The textbook does not count the taken-branch penalty, but the simulator does. With branches in EX, the Chapter 3 loops therefore take 2 more cycles per iteration than in the book (8 → 10, 7 → 9, 26 → 28, 14 → 16).
+- **RISC-V has no delayed branches.** That mode is a teaching aid with MIPS semantics. There is one delay slot for each cycle a taken branch costs: 2 with branches in EX and 1 with branches in ID. The slots always execute.
+- The textbook does not count the taken-branch penalty, but the simulator does. With branches in EX, the loops therefore take 2 more cycles per iteration than in the book (8 → 10, 7 → 9, 26 → 28, 14 → 16).
 
 ### Supported instructions
 
@@ -80,19 +80,19 @@ The workflow in `.github/workflows/ci.yml` runs both suites on every push and pu
 <a id="resumen-en-castellano"></a>
 ## Resumen en castellano
 
-Simulador web de un **pipeline RISC-V de 5 etapas en orden con unidades de coma flotante multiciclo**, pensado para enseñar planificación estática de instrucciones. Sigue los modelos del capítulo 3 y del apéndice C de *Computer Architecture: A Quantitative Approach* (Hennessy y Patterson, 7.ª edición).
+Simulador web de un **pipeline RISC-V de 5 etapas en orden con unidades de coma flotante multiciclo**, pensado para enseñar planificación estática de instrucciones. Sigue el pipeline de *Computer Architecture: A Quantitative Approach* (Hennessy y Patterson, 7.ª edición).
 
 - **Qué ofrece**:
   - editor de ensamblador RISC-V (RV64IMFD);
   - diagrama de ciclos con las paradas coloreadas por su causa;
   - modo ciclo a ciclo;
-  - configuración del modelo de temporización, el adelantamiento, el tratamiento de saltos y la etapa en que se resuelven, y los ciclos y la segmentación de cada unidad FP;
+  - configuración de los conflictos en MEM/WB (opcionales, como en el apéndice C), el adelantamiento, el tratamiento de saltos y la etapa en que se resuelven, y los ciclos y la segmentación de cada unidad FP;
   - ejemplos para clase, comparación con una versión de referencia, interfaz en español e inglés, tema claro y oscuro, y uso en el móvil.
 - **Un único fichero** `index.html`, sin dependencias, que funciona sin conexión.
 - **Notas del modelo**:
-  - Los *ciclos en EX* son los que la operación pasa en su unidad; la *latencia* del libro es uno menos (4/7/25 ciclos → latencia 3/6/24).
+  - Las latencias por defecto son las de Hennessy y Patterson. Los *ciclos en EX* son los que la operación pasa en su unidad; la *latencia* es uno menos (4/7/25 ciclos → latencia 3/6/24).
   - Con los saltos resueltos en EX, un salto tomado cuesta 2 ciclos. El libro no cuenta esa penalización, así que los bucles salen con 2 ciclos más por iteración.
-  - RISC-V no tiene salto retardado: ese modo es didáctico y sigue la semántica de MIPS.
+  - RISC-V no tiene salto retardado: ese modo es didáctico y sigue la semántica de MIPS. Hay un hueco por cada ciclo que cuesta un salto tomado: 2 con los saltos en EX y 1 en ID. Los huecos se ejecutan siempre.
 - **Pruebas**: `npm run test:engine` comprueba los invariantes del pipeline, compara los resultados con un intérprete de referencia, contrasta las cifras del libro, los errores del ensamblador y las traducciones. `npm run test:ui` ejecuta las pruebas de Playwright en Chromium. GitHub Actions pasa ambas y publica en GitHub Pages desde `main`.
 - **Publicación**: en *Settings → Pages → Source*, elegir *GitHub Actions* y hacer `push` a `main`. Al ser un sitio de proyecto, no interfiere con la web personal de `gabrielglzz.github.io`.
 - **Licencia**: MIT.
