@@ -266,3 +266,101 @@ test('cycle-by-cycle mode beyond the first page: sliding window, page kept and n
   await page.click('#mode-full');
   await expect(page.locator('#pager')).toContainText('Instrucciones 1–40');
 });
+
+test('code editor: font size, height and column width are adjustable and remembered', async ({ page }) => {
+  const errors = watchErrors(page);
+  await open(page, 'es');
+  const fsOf = () => page.locator('#code').evaluate(el => getComputedStyle(el).fontSize);
+  await expect(page.locator('#fs-val')).toHaveText('13');
+  for (let i = 0; i < 3; i++) await page.click('#fs-up');
+  await expect(page.locator('#fs-val')).toHaveText('16');
+  expect(await fsOf()).toBe('16px');
+  // the line numbers stay aligned with the code
+  const lh = await page.evaluate(() => [getComputedStyle(document.getElementById('code')).lineHeight, getComputedStyle(document.getElementById('gutter')).lineHeight]);
+  expect(lh[0]).toBe(lh[1]);
+  // limits
+  for (let i = 0; i < 20; i++) if (await page.locator('#fs-up').isEnabled()) await page.click('#fs-up');
+  await expect(page.locator('#fs-val')).toHaveText('24');
+  await expect(page.locator('#fs-up')).toBeDisabled();
+  for (let i = 0; i < 8; i++) await page.click('#fs-down');
+  // taller editor (as the corner drag does) and a wider program column, by keyboard
+  await page.locator('#editor').evaluate(el => { el.style.height = '700px'; });
+  const colW = () => page.locator('.layout > .col').first().evaluate(el => Math.round(el.getBoundingClientRect().width));
+  const w0 = await colW();
+  await page.focus('#splitter');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  expect(await colW()).toBe(w0 + 40);
+  // the splitter keys do not change the cycle in step mode
+  await page.click('#mode-step');
+  await page.focus('#splitter');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('#st-now')).toHaveText(/^Ciclo 1 \//);
+  // everything is remembered after a reload
+  await page.reload();
+  await expect(page.locator('#fs-val')).toHaveText('16');
+  expect(await fsOf()).toBe('16px');
+  expect(Math.round(await page.locator('#editor').evaluate(el => el.getBoundingClientRect().height))).toBe(700);
+  expect(await colW()).toBe(w0 + 60);
+  // double click: default width
+  await page.dblclick('#splitter');
+  expect(await colW()).toBe(w0);
+  expect(errors).toEqual([]);
+});
+
+test('my programs: save, switch, autosave, survive a reload and delete', async ({ page }) => {
+  const errors = watchErrors(page);
+  await open(page, 'es');
+  await expect(page.locator('#prog-del')).toBeDisabled();
+  // save the first program, with its processor settings
+  await page.fill('#code', '.text\n li x5, 1\n');
+  await page.uncheck('#cfg-fwd');
+  await page.click('#prog-save');
+  await page.fill('#prog-name', 'Práctica 1');
+  await page.click('#prog-ok');
+  await expect(page.locator('#prog-list')).toHaveValue('Práctica 1');
+  await expect(page.locator('#example-note')).toContainText('se guardan solos');
+  // a second one
+  await page.click('#prog-save');
+  await expect(page.locator('#prog-name')).toHaveValue('Práctica 1');
+  await expect(page.locator('#prog-exists')).toBeVisible();          // same name: it would be replaced
+  await expect(page.locator('#prog-ok')).toHaveText('Sustituir');
+  await page.fill('#prog-name', 'Práctica 2');
+  await expect(page.locator('#prog-exists')).toBeHidden();
+  await page.click('#prog-ok');
+  await page.fill('#code', '.text\n li x6, 2\n');
+  await page.check('#cfg-fwd');
+  await page.click('#run');
+  // switching is immediate and keeps each program's code and settings
+  await page.selectOption('#prog-list', 'Práctica 1');
+  await expect(page.locator('#code')).toHaveValue(/li x5, 1/);
+  await expect(page.locator('#cfg-fwd')).not.toBeChecked();
+  await page.selectOption('#prog-list', 'Práctica 2');
+  await expect(page.locator('#code')).toHaveValue(/li x6, 2/);       // the edit was saved automatically
+  await expect(page.locator('#cfg-fwd')).toBeChecked();
+  // a name like "__proto__" is just a name
+  await page.click('#prog-save');
+  await page.fill('#prog-name', '__proto__');
+  await page.click('#prog-ok');
+  await expect(page.locator('#prog-list option')).toHaveCount(4);
+  // loading an example does not overwrite the open program
+  await page.selectOption('#prog-list', 'Práctica 1');
+  await loadExample(page, 'raw');
+  await expect(page.locator('#prog-list')).toHaveValue('');
+  await page.selectOption('#prog-list', 'Práctica 1');
+  await expect(page.locator('#code')).toHaveValue(/li x5, 1/);
+  // the last keys typed are kept even if the page is closed straight away
+  await page.locator('#code').press('End');
+  await page.locator('#code').type(' # fin');
+  await page.reload();
+  await expect(page.locator('#prog-list')).toHaveValue('Práctica 1');
+  await expect(page.locator('#code')).toHaveValue(/# fin/);
+  await expect(page.locator('#prog-list option')).toHaveCount(4);
+  // delete
+  page.once('dialog', d => d.accept());
+  await page.click('#prog-del');
+  await expect(page.locator('#prog-list option')).toHaveCount(3);
+  await expect(page.locator('#prog-list')).toHaveValue('');
+  await expect(page.locator('#code')).toHaveValue(/# fin/);           // the code stays in the editor
+  expect(errors).toEqual([]);
+});
