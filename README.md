@@ -13,6 +13,8 @@ Web simulator of an **in-order 5-stage RISC-V pipeline with multicycle floating-
 ## Features
 
 - **RISC-V assembly editor** (RV64I + M + F + D, with pseudo-instructions and data directives).
+- **Adjustable workspace**: resizable editor, code font size and column width, all remembered in the browser.
+- **My programs**: save programs by name and switch between them; the open program is saved automatically in the browser.
 - **Cycle diagram** with stalls coloured by cause (RAW, structural, WAW, control). Hover over a stall to see why it happens.
 - **Cycle-by-cycle mode** showing the state of every stage and functional unit, what happens in each cycle, and the registers and memory at that point.
 - **Configurable processor**: timing model, forwarding, branch handling, branch resolution stage, and the cycles and pipelining of each FP unit.
@@ -84,6 +86,8 @@ Simulador web de un **pipeline RISC-V de 5 etapas en orden con unidades de coma 
 
 - **Qué ofrece**:
   - editor de ensamblador RISC-V (RV64IMFD);
+  - editor redimensionable, con tamaño de letra y ancho de columnas ajustables;
+  - «Mis programas»: guardar programas con nombre y cambiar entre ellos; el programa abierto se guarda solo en el navegador;
   - diagrama de ciclos con las paradas coloreadas por su causa;
   - modo ciclo a ciclo;
   - configuración de los conflictos en MEM/WB (opcionales, como en el apéndice C), el adelantamiento, el tratamiento de saltos y la etapa en que se resuelven, y los ciclos y la segmentación de cada unidad FP;
