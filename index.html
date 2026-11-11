@@ -93,6 +93,10 @@ button,select,input{font:inherit;color:inherit}
 .lang button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 .layout{max-width:1500px;margin-inline:auto;display:grid;grid-template-columns:minmax(0,var(--left-w,440px)) 12px minmax(0,1fr);gap:4px;padding-block:18px}
 /* drag handle between the two columns */
+/* drag bar under the code editor (the native corner handle is unreliable in some browsers) */
+.vgrip{height:12px;cursor:row-resize;position:relative;touch-action:none;border-top:1px solid var(--line-soft)}
+.vgrip::after{content:"";position:absolute;left:50%;top:4px;width:40px;height:4px;margin-left:-20px;border-radius:2px;background:var(--line);transition:background .15s}
+.vgrip:hover::after,.vgrip:focus-visible::after,.vgrip.drag::after{background:var(--accent)}
 .splitter{cursor:col-resize;border-radius:4px;position:relative;touch-action:none}
 .splitter::after{content:"";position:absolute;inset:0 5px;border-radius:1px;background:var(--line);transition:background .15s}
 .splitter:hover::after,.splitter:focus-visible::after,.splitter.drag::after{background:var(--accent)}
@@ -116,7 +120,7 @@ input[type=number]{width:64px;font-family:var(--font-mono);font-variant-numeric:
 
 /* editor */
 /* the editor can be resized vertically from its bottom-right corner; font size via --code-fs/--code-lh */
-.editor{display:grid;grid-template-columns:auto minmax(0,1fr);border-top:1px solid var(--line-soft);background:var(--raised);height:440px;min-height:160px;resize:vertical;border-radius:0 0 var(--radius) var(--radius);overflow:hidden;--code-fs:13px;--code-lh:20px}
+.editor{display:grid;grid-template-columns:auto minmax(0,1fr);border-top:1px solid var(--line-soft);background:var(--raised);height:440px;min-height:160px;overflow:hidden;--code-fs:13px;--code-lh:20px}
 .gutter{font-family:var(--font-mono);font-size:var(--code-fs);line-height:var(--code-lh);color:var(--muted);text-align:right;padding:10px 8px 10px 12px;user-select:none;overflow:hidden;background:var(--surface);border-right:1px solid var(--line-soft);font-variant-numeric:tabular-nums}
 .gutter div.err{color:var(--danger);font-weight:600}
 textarea#code{font-family:var(--font-mono);font-size:var(--code-fs);line-height:var(--code-lh);border:0;outline:none;resize:none;padding:10px 12px;background:transparent;color:var(--ink);white-space:pre;overflow:auto;tab-size:8;min-width:0}
@@ -279,6 +283,8 @@ table.diag td.c.now{background:var(--accent-soft)}
       <div class="example-row">
         <label class="label" for="prog-list" data-i18n="prog.mine"></label>
         <select id="prog-list"></select>
+        <button class="btn small" id="prog-new" type="button" data-i18n="prog.new"></button>
+        <button class="btn small" id="prog-store" type="button" data-i18n="prog.save"></button>
         <button class="btn small" id="prog-save" type="button" data-i18n="prog.saveAs"></button>
         <button class="btn small" id="prog-del" type="button" data-i18n="prog.del"></button>
       </div>
@@ -294,6 +300,7 @@ table.diag td.c.now{background:var(--accent-soft)}
         <div class="gutter" id="gutter" aria-hidden="true"></div>
         <textarea id="code" spellcheck="false" autocapitalize="off" autocomplete="off" data-i18n-aria="code.aria"></textarea>
       </div>
+      <div class="vgrip" id="editor-grip" role="separator" aria-orientation="horizontal" tabindex="0" data-i18n-aria="grip.aria" data-i18n-title="grip.title"></div>
       <div class="editor-bar">
         <button class="btn primary" id="run" type="button" data-i18n="run"></button>
         <button class="btn" id="set-ref" type="button" data-i18n="setref" data-i18n-title="setref.title"></button>
@@ -521,7 +528,11 @@ es: {
   'restored':'Se ha recuperado el último programa que editaste en este navegador.',
   'prog.mine':'Mis programas', 'prog.none':'— sin guardar —', 'prog.saveAs':'Guardar como…', 'prog.del':'Borrar',
   'prog.name':'Nombre', 'prog.save':'Guardar', 'prog.replace':'Sustituir', 'prog.cancel':'Cancelar',
-  'prog.opened':'«{name}»: los cambios en el código y en el procesador se guardan solos en este navegador.',
+  'prog.new':'Nuevo', 'prog.clean':'«{name}» está guardado en este navegador.',
+  'prog.dirty':'«{name}» tiene cambios sin guardar. Guardar los conserva en este programa; Guardar como… crea otro.',
+  'prog.newNote':'Programa nuevo, todavía sin guardar: usa Guardar como… para darle un nombre.',
+  'prog.discard':'Hay cambios sin guardar en el editor. ¿Descartarlos?', 'prog.discardNamed':'«{name}» tiene cambios sin guardar. ¿Descartarlos?',
+  'grip.aria':'Alto del editor', 'grip.title':'Arrastra para cambiar el alto del editor (doble clic: restablecer)',
   'prog.exists':'Ya hay un programa con ese nombre: se sustituirá.', 'prog.confirmDel':'¿Borrar el programa «{name}»?',
   'fs.aria':'Tamaño del texto del código', 'fs.down':'Reducir el texto del código', 'fs.up':'Aumentar el texto del código',
   'split.aria':'Ancho de la columna del programa', 'split.title':'Arrastra para cambiar el ancho de las columnas (doble clic: restablecer)',
@@ -624,7 +635,11 @@ en: {
   'restored':'Your last program in this browser has been restored.',
   'prog.mine':'My programs', 'prog.none':'— not saved —', 'prog.saveAs':'Save as…', 'prog.del':'Delete',
   'prog.name':'Name', 'prog.save':'Save', 'prog.replace':'Replace', 'prog.cancel':'Cancel',
-  'prog.opened':'“{name}”: changes to the code and to the processor are saved automatically in this browser.',
+  'prog.new':'New', 'prog.clean':'“{name}” is saved in this browser.',
+  'prog.dirty':'“{name}” has unsaved changes. Save keeps them in this program; Save as… creates another one.',
+  'prog.newNote':'New program, not saved yet: use Save as… to give it a name.',
+  'prog.discard':'The editor has unsaved changes. Discard them?', 'prog.discardNamed':'“{name}” has unsaved changes. Discard them?',
+  'grip.aria':'Editor height', 'grip.title':'Drag to change the height of the editor (double-click: reset)',
   'prog.exists':'There is already a program with that name: it will be replaced.', 'prog.confirmDel':'Delete the program “{name}”?',
   'fs.aria':'Code text size', 'fs.down':'Smaller code text', 'fs.up':'Larger code text',
   'split.aria':'Width of the program column', 'split.title':'Drag to change the width of the columns (double-click: reset)',
@@ -1456,19 +1471,22 @@ function initUI(){
   }
   function showNote(){
     const e = EXAMPLES.find(x => x.id === noteKey);
-    $('example-note').textContent = noteKey === 'program' && active ? t('prog.opened',{name:active})
+    $('example-note').textContent = noteKey === 'program' && active ? t(isDirty() ? 'prog.dirty' : 'prog.clean',{name:active})
+      : noteKey === 'new' ? t('prog.newNote')
       : noteKey === 'restored' ? t('restored') : e ? e.note[LANG] : '';
   }
-  function loadExample(id){
+  function loadExample(id, force){
+    if (!force && !confirmDiscard()) { fillExamples(); return; }
     const e = EXAMPLES.find(x => x.id === id) || EXAMPLES[0];
     sel.value = e.id;
     code.value = e.code[LANG];
     cfg.branch = e.branch || 'pnt';
     cfg.model = e.model || 'ch3';
     if (e.units) Object.assign(cfg.pipelined, e.units);   // the example needs this unit configured this way
-    setActive(null);                                      // the open program must not be overwritten by the example
+    setActive(null);
+    syncCfgUI(); markClean();
     noteKey = e.id; showNote();
-    syncCfgUI(); updateGutter(); run(true);
+    updateGutter(); run(true);
   }
   $('load-example').addEventListener('click', () => loadExample(sel.value));
 
@@ -1508,7 +1526,7 @@ function initUI(){
   }
   code.addEventListener('scroll', () => { gutter.scrollTop = code.scrollTop; });
   let tmr = null;
-  code.addEventListener('input', () => { updateGutter(); clearTimeout(tmr); tmr = setTimeout(() => run(false), 500); });
+  code.addEventListener('input', () => { refreshDirty(); updateGutter(); clearTimeout(tmr); tmr = setTimeout(() => run(false), 500); });
   code.addEventListener('keydown', e => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); run(false); }
     if (e.key === 'Tab' && !e.shiftKey) { e.preventDefault(); const s = code.selectionStart; code.setRangeText('        ', s, code.selectionEnd, 'end'); updateGutter(); }
@@ -1534,7 +1552,7 @@ function initUI(){
 
   function run(resetPage){
     readCfgUI();
-    store.set('pfp-code', code.value); store.set('pfp-cfg', cfg); saveActive();
+    store.set('pfp-code', code.value); store.set('pfp-cfg', cfg); refreshDirty();
     const errBox = $('error');
     try {
       const prog = assemble(code.value);
@@ -1823,9 +1841,9 @@ function initUI(){
     if (!I18N[l] || l === LANG) return;
     const old = LANG;
     // if the editor holds an unmodified example, swap it for its version in the other language
-    const ex = EXAMPLES.find(e => e.code[old] === code.value);
+    const ex = EXAMPLES.find(e => e.code[old] === code.value), wasClean = !isDirty();
     LANG = l; store.set('pfp-lang', l);
-    if (ex) code.value = ex.code[l];
+    if (ex) { code.value = ex.code[l]; if (wasClean) markClean(); }
     if (reference && ex && reference.name === ex.name[old]) reference.name = ex.name[l];
     applyStatic(); updateGutter(); run(false);
   }
@@ -1839,59 +1857,82 @@ function initUI(){
   let active = store.get('pfp-active');
   if (!programs.has(active)) active = null;
   const progList = $('prog-list'), progForm = $('prog-form'), progName = $('prog-name');
+  // unsaved changes: the code (and, for a saved program, the processor settings) differ from the last load or save
+  let baseline = null;
+  const snapshot = () => JSON.stringify(active ? [code.value, cfg] : [code.value]);
+  const isDirty = () => snapshot() !== baseline;
+  let shownDirty = null;
+  function markClean(){ baseline = snapshot(); refreshDirty(); }
+  function refreshDirty(){
+    const d = isDirty();
+    if (d === shownDirty) return;
+    shownDirty = d;
+    fillPrograms(); showNote();
+  }
+  function confirmDiscard(){
+    if (!isDirty()) return true;
+    return confirm(active ? t('prog.discardNamed',{name:active}) : t('prog.discard'));
+  }
   function fillPrograms(){
     const names = [...programs.keys()].sort((a, b) => a.localeCompare(b, LANG));
-    progList.innerHTML = `<option value="">${esc(t('prog.none'))}</option>` + names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    const dirty = isDirty();
+    progList.innerHTML = `<option value="" disabled>${esc(t('prog.none'))}</option>` +
+      names.map(n => `<option value="${esc(n)}">${esc(n)}${n === active && dirty ? ' •' : ''}</option>`).join('');
     progList.value = active || '';
     $('prog-del').disabled = !active;
+    $('prog-store').disabled = !!active && !dirty;
   }
   function savePrograms(){ store.set('pfp-programs', [...programs]); store.set('pfp-active', active); }
-  function setActive(name){ active = name; savePrograms(); fillPrograms(); }
-  // the open program follows every change to the code and to the processor
-  function saveActive(){
-    if (!active) return;
-    const p = programs.get(active);
-    if (p && p.code === code.value && JSON.stringify(p.cfg) === JSON.stringify(cfg)) return;
-    programs.set(active, {code: code.value, cfg: structuredClone(cfg), saved: Date.now()});
-    savePrograms();
+  function setActive(name){ active = name; savePrograms(); shownDirty = null; }
+  function storeAs(name){
+    readCfgUI();
+    programs.set(name, {code: code.value, cfg: structuredClone(cfg), saved: Date.now()});
+    setActive(name); markClean();
+    noteKey = 'program'; showNote();
   }
   function openProgram(name){
     const p = programs.get(name); if (!p) return;
     code.value = p.code; cfg = mergeCfg(p.cfg);
-    setActive(name);
+    setActive(name); syncCfgUI(); markClean();
     noteKey = 'program'; showNote();
-    syncCfgUI(); updateGutter(); run(true);
+    updateGutter(); run(true);
   }
   progList.addEventListener('change', () => {
-    if (progList.value) openProgram(progList.value);
-    else { setActive(null); noteKey = null; showNote(); }   // keep the code, but stop saving it into the program
+    const name = progList.value;
+    if (!confirmDiscard()) { progList.value = active || ''; return; }
+    openProgram(name);
   });
+  $('prog-new').addEventListener('click', () => {
+    if (!confirmDiscard()) return;
+    code.value = '.data\n\n.text\n        nop\n';
+    setActive(null); markClean();
+    noteKey = 'new'; showNote();
+    updateGutter(); run(true); code.focus();
+  });
+  // Save: into the open program; with none open, it asks for a name
+  $('prog-store').addEventListener('click', () => { if (active) storeAs(active); else openForm(); });
   function updateNameHint(){
     const exists = programs.has(progName.value.trim());
     $('prog-ok').textContent = t(exists ? 'prog.replace' : 'prog.save');
     $('prog-exists').hidden = !exists;
   }
+  function openForm(){ progForm.hidden = false; progName.value = active || ''; updateNameHint(); progName.focus(); progName.select(); }
   function closeForm(){ progForm.hidden = true; $('prog-save').focus(); }
-  $('prog-save').addEventListener('click', () => {
-    progForm.hidden = false; progName.value = active || ''; updateNameHint(); progName.focus(); progName.select();
-  });
+  $('prog-save').addEventListener('click', openForm);
   progName.addEventListener('input', updateNameHint);
   progName.addEventListener('keydown', e => { if (e.key === 'Escape') closeForm(); });
   $('prog-cancel').addEventListener('click', closeForm);
   progForm.addEventListener('submit', e => {
     e.preventDefault();
     const name = progName.value.trim(); if (!name) return;
-    readCfgUI();
-    programs.set(name, {code: code.value, cfg: structuredClone(cfg), saved: Date.now()});
-    setActive(name); closeForm();
-    noteKey = 'program'; showNote();
+    storeAs(name); closeForm();
   });
   $('prog-del').addEventListener('click', () => {
     if (!active || !confirm(t('prog.confirmDel',{name:active}))) return;
-    programs.delete(active); setActive(null); noteKey = null; showNote();
+    programs.delete(active); setActive(null); markClean(); noteKey = null; showNote();   // the code stays in the editor
   });
-  // the editor runs (and saves) 500 ms after the last key: do not lose those keys when the page is closed
-  window.addEventListener('pagehide', () => { store.set('pfp-code', code.value); saveActive(); });
+  // the editor content is stored 500 ms after the last key: do not lose those keys when the page is closed
+  window.addEventListener('pagehide', () => { store.set('pfp-code', code.value); });
 
   /* ---------- editor size, code font size and column width (remembered in this browser) ---------- */
   const editor = $('editor');
@@ -1907,12 +1948,37 @@ function initUI(){
   const setFs = v => { fs = Math.min(FS.max, Math.max(FS.min, v)); store.set('pfp-fs', fs); applyFs(); };
   $('fs-down').addEventListener('click', () => setFs(fs - 1));
   $('fs-up').addEventListener('click', () => setFs(fs + 1));
-  const savedH = Number(store.get('pfp-editor-h'));
-  if (savedH >= 160 && savedH <= 4000) editor.style.height = savedH + 'px';
-  // the browser sets style.height only when the user drags the corner
-  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => {
-    if (editor.style.height) store.set('pfp-editor-h', Math.round(editor.getBoundingClientRect().height));
-  }).observe(editor);
+  const grip = $('editor-grip'), EH = {def:440, min:160, max:2000};
+  function setEditorH(h, save){
+    h = Math.round(Math.min(EH.max, Math.max(EH.min, h)));
+    editor.style.height = h + 'px'; grip.setAttribute('aria-valuenow', String(h));
+    if (save) store.set('pfp-editor-h', h);
+  }
+  function resetEditorH(){ editor.style.height = ''; grip.setAttribute('aria-valuenow', String(EH.def)); store.set('pfp-editor-h', null); }
+  grip.setAttribute('aria-valuemin', String(EH.min)); grip.setAttribute('aria-valuemax', String(EH.max));
+  grip.setAttribute('aria-valuenow', String(EH.def));
+  { const h = Number(store.get('pfp-editor-h')); if (h >= EH.min && h <= EH.max) setEditorH(h, false); }
+  grip.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    e.preventDefault(); grip.setPointerCapture(e.pointerId); grip.classList.add('drag');
+    const y0 = e.clientY, h0 = editor.getBoundingClientRect().height;
+    const move = ev => setEditorH(h0 + ev.clientY - y0, false);
+    const up = () => {
+      grip.classList.remove('drag');
+      grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', up); grip.removeEventListener('pointercancel', up);
+      store.set('pfp-editor-h', Math.round(editor.getBoundingClientRect().height));
+    };
+    grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up); grip.addEventListener('pointercancel', up);
+  });
+  grip.addEventListener('dblclick', resetEditorH);
+  grip.addEventListener('keydown', e => {
+    const h = editor.getBoundingClientRect().height, step = e.shiftKey ? 120 : 40;
+    if (e.key === 'ArrowDown') setEditorH(h + step, true);
+    else if (e.key === 'ArrowUp') setEditorH(h - step, true);
+    else if (e.key === 'Enter') resetEditorH();
+    else return;
+    e.preventDefault();
+  });
 
   const layout = document.querySelector('.layout'), split = $('splitter'), leftCol = layout.querySelector('.col');
   const LW = {def:440, min:300, rightMin:420};
@@ -1962,12 +2028,19 @@ function initUI(){
   if (typeof savedCode === 'string' && savedCode.trim()) {
     code.value = savedCode;
     const ex = EXAMPLES.find(e => e.code.es === savedCode || e.code.en === savedCode);
-    if (active) { sel.value = 'loop'; noteKey = 'program'; }
-    else if (ex) { code.value = ex.code[LANG]; sel.value = ex.id; noteKey = ex.id; }
-    else { sel.value = 'loop'; noteKey = 'restored'; }
-    showNote(); syncCfgUI(); updateGutter(); run(true);
+    if (active) {
+      // compare with the saved version: changes left unsaved are still marked as such
+      const p = programs.get(active), keep = [code.value, cfg];
+      code.value = p.code; cfg = mergeCfg(p.cfg); markClean();
+      code.value = keep[0]; cfg = keep[1];
+      sel.value = 'loop'; noteKey = 'program';
+    }
+    else if (ex) { code.value = ex.code[LANG]; sel.value = ex.id; noteKey = ex.id; markClean(); }
+    else { sel.value = 'loop'; noteKey = 'restored'; baseline = '';   // restored code that was never saved
+    }
+    syncCfgUI(); refreshDirty(); showNote(); updateGutter(); run(true);
   } else {
-    loadExample('loop');
+    loadExample('loop', true);
   }
 }
 if (typeof document !== 'undefined') initUI();

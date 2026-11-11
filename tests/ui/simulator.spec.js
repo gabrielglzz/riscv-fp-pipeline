@@ -283,8 +283,9 @@ test('code editor: font size, height and column width are adjustable and remembe
   await expect(page.locator('#fs-val')).toHaveText('24');
   await expect(page.locator('#fs-up')).toBeDisabled();
   for (let i = 0; i < 8; i++) await page.click('#fs-down');
-  // taller editor (as the corner drag does) and a wider program column, by keyboard
-  await page.locator('#editor').evaluate(el => { el.style.height = '700px'; });
+  // taller editor (by keyboard on the drag bar) and a wider program column
+  await page.focus('#editor-grip');
+  for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowDown');   // 440 + 6 × 40 = 680
   const colW = () => page.locator('.layout > .col').first().evaluate(el => Math.round(el.getBoundingClientRect().width));
   const w0 = await colW();
   await page.focus('#splitter');
@@ -300,7 +301,7 @@ test('code editor: font size, height and column width are adjustable and remembe
   await page.reload();
   await expect(page.locator('#fs-val')).toHaveText('16');
   expect(await fsOf()).toBe('16px');
-  expect(Math.round(await page.locator('#editor').evaluate(el => el.getBoundingClientRect().height))).toBe(700);
+  expect(Math.round(await page.locator('#editor').evaluate(el => el.getBoundingClientRect().height))).toBe(680);
   expect(await colW()).toBe(w0 + 60);
   // double click: default width
   await page.dblclick('#splitter');
@@ -308,59 +309,104 @@ test('code editor: font size, height and column width are adjustable and remembe
   expect(errors).toEqual([]);
 });
 
-test('my programs: save, switch, autosave, survive a reload and delete', async ({ page }) => {
+test('my programs: explicit save, unsaved mark, new program, confirmations and delete', async ({ page }) => {
   const errors = watchErrors(page);
   await open(page, 'es');
   await expect(page.locator('#prog-del')).toBeDisabled();
-  // save the first program, with its processor settings
+  // save a first program, with its processor settings
   await page.fill('#code', '.text\n li x5, 1\n');
   await page.uncheck('#cfg-fwd');
   await page.click('#prog-save');
   await page.fill('#prog-name', 'Práctica 1');
   await page.click('#prog-ok');
   await expect(page.locator('#prog-list')).toHaveValue('Práctica 1');
-  await expect(page.locator('#example-note')).toContainText('se guardan solos');
-  // a second one
+  await expect(page.locator('#example-note')).toContainText('está guardado');
+  await expect(page.locator('#prog-store')).toBeDisabled();             // nothing to save
+  // editing does not save: the program is marked and Save becomes available
+  await page.locator('#code').press('End');
+  await page.locator('#code').type(' # cambio');
+  await expect(page.locator('#prog-list option:checked')).toHaveText('Práctica 1 •');
+  await expect(page.locator('#example-note')).toContainText('cambios sin guardar');
+  await expect(page.locator('#prog-store')).toBeEnabled();
+  // Save as… creates a second program and leaves the first one as it was
   await page.click('#prog-save');
-  await expect(page.locator('#prog-name')).toHaveValue('Práctica 1');
-  await expect(page.locator('#prog-exists')).toBeVisible();          // same name: it would be replaced
-  await expect(page.locator('#prog-ok')).toHaveText('Sustituir');
   await page.fill('#prog-name', 'Práctica 2');
-  await expect(page.locator('#prog-exists')).toBeHidden();
   await page.click('#prog-ok');
-  await page.fill('#code', '.text\n li x6, 2\n');
-  await page.check('#cfg-fwd');
-  await page.click('#run');
-  // switching is immediate and keeps each program's code and settings
+  await expect(page.locator('#prog-list')).toHaveValue('Práctica 2');
   await page.selectOption('#prog-list', 'Práctica 1');
-  await expect(page.locator('#code')).toHaveValue(/li x5, 1/);
+  await expect(page.locator('#code')).not.toHaveValue(/# cambio/);
   await expect(page.locator('#cfg-fwd')).not.toBeChecked();
+  // a processor change also counts, and Save stores it in the open program
+  await page.check('#cfg-fwd');
+  await expect(page.locator('#prog-list option:checked')).toHaveText('Práctica 1 •');
+  await page.click('#prog-store');
+  await expect(page.locator('#prog-list option:checked')).toHaveText('Práctica 1');
+  // switching with unsaved changes asks first; cancelling keeps everything
+  await page.locator('#code').type('\n nop');
+  page.once('dialog', d => d.dismiss());
   await page.selectOption('#prog-list', 'Práctica 2');
-  await expect(page.locator('#code')).toHaveValue(/li x6, 2/);       // the edit was saved automatically
+  await expect(page.locator('#prog-list')).toHaveValue('Práctica 1');
+  await expect(page.locator('#code')).toHaveValue(/nop$/);
+  // ... and accepting discards them
+  page.once('dialog', d => d.accept());
+  await page.selectOption('#prog-list', 'Práctica 2');
+  await expect(page.locator('#code')).toHaveValue(/# cambio/);
+  await page.selectOption('#prog-list', 'Práctica 1');
+  await expect(page.locator('#code')).not.toHaveValue(/nop$/);
   await expect(page.locator('#cfg-fwd')).toBeChecked();
+  // New: an empty program that is not saved anywhere; Save asks for a name
+  await page.click('#prog-new');
+  await expect(page.locator('#prog-list')).toHaveValue('');
+  await expect(page.locator('#example-note')).toContainText('Programa nuevo');
+  await page.locator('#code').type(' # otro');
+  await page.click('#prog-store');
+  await expect(page.locator('#prog-form')).toBeVisible();
+  await expect(page.locator('#prog-name')).toHaveValue('');
+  await page.click('#prog-cancel');
+  // loading an example with unsaved changes asks too
+  page.once('dialog', d => d.dismiss());
+  await loadExample(page, 'raw');
+  await expect(page.locator('#code')).toHaveValue(/# otro/);
   // a name like "__proto__" is just a name
   await page.click('#prog-save');
   await page.fill('#prog-name', '__proto__');
   await page.click('#prog-ok');
   await expect(page.locator('#prog-list option')).toHaveCount(4);
-  // loading an example does not overwrite the open program
-  await page.selectOption('#prog-list', 'Práctica 1');
-  await loadExample(page, 'raw');
-  await expect(page.locator('#prog-list')).toHaveValue('');
-  await page.selectOption('#prog-list', 'Práctica 1');
-  await expect(page.locator('#code')).toHaveValue(/li x5, 1/);
-  // the last keys typed are kept even if the page is closed straight away
-  await page.locator('#code').press('End');
-  await page.locator('#code').type(' # fin');
+  // unsaved changes survive a reload and are still marked
+  await page.locator('#code').type(' # sin guardar');
   await page.reload();
-  await expect(page.locator('#prog-list')).toHaveValue('Práctica 1');
-  await expect(page.locator('#code')).toHaveValue(/# fin/);
-  await expect(page.locator('#prog-list option')).toHaveCount(4);
+  await expect(page.locator('#prog-list')).toHaveValue('__proto__');
+  await expect(page.locator('#code')).toHaveValue(/# sin guardar/);
+  await expect(page.locator('#prog-list option:checked')).toHaveText('__proto__ •');
   // delete
   page.once('dialog', d => d.accept());
   await page.click('#prog-del');
   await expect(page.locator('#prog-list option')).toHaveCount(3);
   await expect(page.locator('#prog-list')).toHaveValue('');
-  await expect(page.locator('#code')).toHaveValue(/# fin/);           // the code stays in the editor
+  await expect(page.locator('#code')).toHaveValue(/# sin guardar/);   // the code stays in the editor
   expect(errors).toEqual([]);
+});
+
+test('editor height: drag bar works with a short program, by keyboard, and is remembered', async ({ page }) => {
+  await open(page, 'es');
+  await page.fill('#code', '.text\n nop\n');
+  const h = () => page.locator('#editor').evaluate(el => Math.round(el.getBoundingClientRect().height));
+  const h0 = await h();
+  await page.setViewportSize({ width: 1280, height: 1100 });            // room to drag inside the window
+  const g = await page.locator('#editor-grip').boundingBox();
+  await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2 + 200, { steps: 5 });
+  await page.mouse.up();
+  expect(await h()).toBe(h0 + 200);
+  await page.focus('#editor-grip');
+  await page.keyboard.press('ArrowUp');
+  expect(await h()).toBe(h0 + 160);
+  for (let i = 0; i < 30; i++) await page.keyboard.press('ArrowUp');
+  expect(await h()).toBe(160);                                       // minimum
+  await page.keyboard.press('ArrowDown');
+  await page.reload();
+  expect(await h()).toBe(200);
+  await page.dblclick('#editor-grip');
+  expect(await h()).toBe(h0);
 });
